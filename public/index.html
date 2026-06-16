@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>World Cup Match Centre</title>
+    <link rel="stylesheet" href="/public/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true">26</div>
+        <div>
+          <p class="eyebrow">North America 2026</p>
+          <h1>World Cup Match Centre</h1>
+        </div>
+      </div>
+      <nav class="top-nav" aria-label="Primary">
+        <button type="button" class="tab-trigger active" data-tab="fixtures">Fixtures</button>
+        <button type="button" class="tab-trigger" data-tab="standings">Standings</button>
+        <button type="button" class="tab-trigger" data-tab="bracket">Bracket</button>
+        <button type="button" class="tab-trigger" data-tab="forecast">Forecast</button>
+      </nav>
+    </header>
+
+    <main class="app-shell">
+      <section class="hero-board">
+        <div class="hero-copy">
+          <p class="eyebrow">Scores, fixtures, bracket, forecast</p>
+          <h2>Follow the tournament first. Run the model when the question shows up.</h2>
+        </div>
+        <div class="hero-stats" aria-label="Tournament summary">
+          <div>
+            <span>Matches</span>
+            <strong>104</strong>
+          </div>
+          <div>
+            <span>Teams</span>
+            <strong>48</strong>
+          </div>
+          <div>
+            <span>Knockout</span>
+            <strong>32</strong>
+          </div>
+        </div>
+      </section>
+
+      <section id="fixtures" class="tab-panel active" data-panel="fixtures">
+        <div class="panel match-centre">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Match centre</p>
+              <h2>Scores & Fixtures</h2>
+            </div>
+            <div class="filter-pills" id="day-pills" aria-label="Match day filter"></div>
+          </div>
+          <div id="match-list" class="match-list" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section id="standings" class="tab-panel" data-panel="standings">
+        <div class="standings-layout">
+          <div class="panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Current tables</p>
+                <h2>Group Standings</h2>
+              </div>
+              <span>Completed results only</span>
+            </div>
+            <div id="current-standings" class="standings-grid"></div>
+          </div>
+          <div class="panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Forecast sample</p>
+                <h2>Projected Group Tables</h2>
+              </div>
+              <span>Latest simulation path</span>
+            </div>
+            <div id="projected-standings" class="standings-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="bracket" class="tab-panel" data-panel="bracket">
+        <div class="panel bracket-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Knockout path</p>
+              <h2>Projected Bracket</h2>
+            </div>
+            <span>Sample scores from the latest forecast</span>
+          </div>
+          <div id="bracket-stage" class="bracket-stage"></div>
+        </div>
+      </section>
+
+      <section id="forecast" class="tab-panel" data-panel="forecast">
+        <div class="forecast-layout">
+          <aside class="panel forecast-panel">
+            <div class="section-heading compact">
+              <div>
+                <p class="eyebrow">Forecast lab</p>
+                <h2>Prediction Model</h2>
+              </div>
+              <span id="run-summary">Ready</span>
+            </div>
+            <div class="forecast-controls">
+              <label>
+                Simulations
+                <select id="simulation-count">
+                  <option value="250">250</option>
+                  <option value="1000" selected>1,000</option>
+                  <option value="5000">5,000</option>
+                </select>
+              </label>
+              <label>
+                Mode
+                <select id="mode">
+                  <option value="snapshot">Current snapshot</option>
+                  <option value="pre">Clean pre-tournament</option>
+                </select>
+              </label>
+              <button id="run-button" type="button">Run Forecast</button>
+            </div>
+            <div id="favorites" class="favorites" aria-live="polite"></div>
+            <div id="team-detail" class="team-detail empty-state">
+              Select a team from the forecast table.
+            </div>
+          </aside>
+
+          <div class="panel table-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Team probabilities</p>
+                <h2>Forecast Table</h2>
+              </div>
+              <span>Click a row to inspect route profile</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th>Group</th>
+                    <th>R32</th>
+                    <th>R16</th>
+                    <th>QF</th>
+                    <th>SF</th>
+                    <th>Final</th>
+                    <th>Champion</th>
+                  </tr>
+                </thead>
+                <tbody id="probability-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/public/app.js"></script>
+  </body>
+</html>

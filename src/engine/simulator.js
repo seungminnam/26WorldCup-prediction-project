@@ -1,0 +1,126 @@
+import { fixtures } from "../data/fixtures.js";
+import { teams } from "../data/teams.js";
+import { buildRoundOf32, simulateKnockout } from "./bracket.js";
+import { simulateGroupMatch } from "./predictor.js";
+import { rankAllGroups } from "./ranking.js";
+import { selectBestThirdPlaceTeams } from "./thirdPlace.js";
+
+const finishRank = {
+  "Group Stage": 0,
+  "Round of 32": 1,
+  "Round of 16": 2,
+  Quarterfinal: 3,
+  Semifinal: 4,
+  Final: 5,
+  Champion: 6
+};
+
+const probabilityFields = [
+  ["roundOf32", "Round of 32"],
+  ["roundOf16", "Round of 16"],
+  ["quarterfinal", "Quarterfinal"],
+  ["semifinal", "Semifinal"],
+  ["final", "Final"],
+  ["champion", "Champion"]
+];
+
+function createCounters(teamList) {
+  return Object.fromEntries(
+    teamList.map((team) => [
+      team.id,
+      {
+        teamId: team.id,
+        roundOf32: 0,
+        roundOf16: 0,
+        quarterfinal: 0,
+        semifinal: 0,
+        final: 0,
+        champion: 0
+      }
+    ])
+  );
+}
+
+function reached(finish, target) {
+  return finishRank[finish] >= finishRank[target];
+}
+
+export function simulateTournament({
+  teamList = teams,
+  fixtureList = fixtures,
+  random = Math.random
+} = {}) {
+  const teamsById = Object.fromEntries(teamList.map((team) => [team.id, team]));
+  const playedGroupMatches = fixtureList.map((match) => simulateGroupMatch(match, teamsById, random));
+  const groupRankings = rankAllGroups(teamList, playedGroupMatches);
+  const bestThirds = selectBestThirdPlaceTeams(groupRankings);
+  const roundOf32 = buildRoundOf32(groupRankings, bestThirds);
+  const knockout = simulateKnockout(roundOf32, teamsById, random);
+  const qualifiedIds = new Set(roundOf32.flatMap((match) => match.teamIds));
+
+  const teamFinishes = Object.fromEntries(teamList.map((team) => [team.id, "Group Stage"]));
+  for (const teamId of qualifiedIds) {
+    teamFinishes[teamId] = knockout.teamFinishes[teamId] ?? "Round of 32";
+  }
+
+  return {
+    teams: teamList,
+    playedGroupMatches,
+    groupRankings,
+    bestThirds,
+    roundOf32,
+    rounds: knockout.rounds,
+    championId: knockout.championId,
+    teamFinishes
+  };
+}
+
+export function runMonteCarlo({
+  simulations = 1000,
+  teamList = teams,
+  fixtureList = fixtures,
+  random = Math.random
+} = {}) {
+  const counters = createCounters(teamList);
+  let sampleBracket;
+
+  for (let index = 0; index < simulations; index += 1) {
+    const tournament = simulateTournament({ teamList, fixtureList, random });
+    if (index === 0) {
+      sampleBracket = tournament;
+    }
+
+    for (const [teamId, finish] of Object.entries(tournament.teamFinishes)) {
+      for (const [field, target] of probabilityFields) {
+        if (reached(finish, target)) {
+          counters[teamId][field] += 1;
+        }
+      }
+    }
+  }
+
+  const probabilities = Object.values(counters)
+    .map((row) => {
+      const team = teamList.find((candidate) => candidate.id === row.teamId);
+      return {
+        ...row,
+        name: team.name,
+        group: team.group,
+        rating: team.rating,
+        roundOf32: row.roundOf32 / simulations,
+        roundOf16: row.roundOf16 / simulations,
+        quarterfinal: row.quarterfinal / simulations,
+        semifinal: row.semifinal / simulations,
+        final: row.final / simulations,
+        champion: row.champion / simulations
+      };
+    })
+    .sort((a, b) => b.champion - a.champion || b.final - a.final || b.rating - a.rating);
+
+  return {
+    simulations,
+    teams: teamList,
+    probabilities,
+    sampleBracket
+  };
+}

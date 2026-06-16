@@ -1,0 +1,11 @@
+{
+  "name": "@wc/tournament-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./data": "./src/data/index.js",
+    "./engine": "./src/engine/index.js"
+  }
+}
