@@ -9,7 +9,7 @@
 
 ## Vercel Project Settings
 
-Use these settings when importing the GitHub repository:
+Use these settings when importing the GitHub repository through the Vercel dashboard:
 
 - **Framework Preset:** Next.js
 - **Root Directory:** `apps/web`
@@ -18,6 +18,8 @@ Use these settings when importing the GitHub repository:
 - **Output Directory:** leave default
 
 The app depends on the local workspace package at `../../packages/tournament-engine`, so keep the repository layout intact.
+
+For CLI deployments from the repository root, `vercel.json` runs the workspace build and points Vercel at `apps/web/.next`.
 
 ## Current Commands
 
