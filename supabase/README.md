@@ -7,6 +7,12 @@ This directory contains the database foundation for the World Cup match centre a
 - `schema.sql`: Current full schema snapshot.
 - `migrations/20260617030000_initial_world_cup_schema.sql`: Initial migration for a new Supabase project.
 
+## Remote Project
+
+- Project ref: `iicrbyyagalnqzqppnox`
+- Dashboard: https://supabase.com/dashboard/project/iicrbyyagalnqzqppnox
+- Region: `ap-northeast-2`
+
 ## Access Model
 
 - Public app clients can only read approved tables and views.
@@ -43,4 +49,3 @@ Keep server-only keys outside git:
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_DB_URL=
 ```
-

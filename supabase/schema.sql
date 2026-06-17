@@ -6,6 +6,7 @@ revoke all on schema app_private from anon, authenticated;
 create or replace function app_private.set_updated_at()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   new.updated_at = now();
