@@ -8,28 +8,10 @@ import {
   runMonteCarlo,
   teams as teamSeed
 } from "@wc/tournament-engine";
+import type { AppFixture, AppTeam, TournamentData } from "@/lib/tournament-data";
 
 type TabName = "fixtures" | "standings" | "bracket" | "forecast";
 type MatchStatus = "FT" | "Upcoming" | "Result pending";
-type Team = {
-  id: string;
-  name: string;
-  group: string;
-  rating: number;
-};
-type Fixture = {
-  id: string;
-  matchNumber: number;
-  group: string;
-  homeTeamId: string;
-  awayTeamId: string;
-  kickoff: string;
-  venue: string;
-  status: string;
-  homeGoals?: number;
-  awayGoals?: number;
-  scorers: Array<{ teamId: string; player: string; minute: number }>;
-};
 type StandingRow = {
   teamId: string;
   group: string;
@@ -67,8 +49,8 @@ type ForecastResult = {
   };
 };
 
-const teams = teamSeed as Team[];
-const fixtures = fixtureSeed as Fixture[];
+const fallbackTeams = teamSeed as AppTeam[];
+const fallbackFixtures = fixtureSeed as AppFixture[];
 
 const flags: Record<string, string> = {
   ARG: "🇦🇷",
@@ -132,9 +114,13 @@ const bracketRoundMeta: Record<string, { interval: number; offset: number }> = {
 const roundOrder = ["Round of 32", "Round of 16", "Quarterfinal", "Semifinal", "Final"];
 const venues = ["Los Angeles", "Dallas", "Atlanta", "Miami", "Vancouver", "Boston"];
 
-const teamsById = Object.fromEntries(teams.map((team) => [team.id, team])) as Record<string, Team>;
-
-export function MatchCentreApp() {
+export function MatchCentreApp({ initialData }: { initialData?: TournamentData }) {
+  const teams = initialData?.teams?.length ? initialData.teams : fallbackTeams;
+  const fixtures = initialData?.fixtures?.length ? initialData.fixtures : fallbackFixtures;
+  const teamsById = useMemo(() => Object.fromEntries(teams.map((team) => [team.id, team])), [teams]) as Record<
+    string,
+    AppTeam
+  >;
   const [activeTab, setActiveTab] = useState<TabName>("fixtures");
   const [selectedDate, setSelectedDate] = useState<string>(() => dateKey(fixtures[0].kickoff));
   const [simulationCount, setSimulationCount] = useState(1000);
@@ -179,7 +165,10 @@ export function MatchCentreApp() {
   );
 
   const dateOptions = useMemo(() => [...new Set(fixtures.map((match) => dateKey(match.kickoff)))].sort(), []);
-  const currentStandings = useMemo(() => buildStandings(completedFixtures()), []);
+  const currentStandings = useMemo(
+    () => buildStandings(completedFixtures(fixtures), teams),
+    [fixtures, teams]
+  );
   const projectedStandings = forecast?.sampleBracket.groupRankings ?? [];
   const selectedTeam = forecast?.probabilities.find(
     (team) => team.teamId === (selectedTeamId ?? forecast.probabilities[0]?.teamId)
@@ -188,7 +177,7 @@ export function MatchCentreApp() {
   function runForecast() {
     const fixtureList =
       mode === "pre" ? fixtures.map(({ homeGoals, awayGoals, ...match }) => match) : fixtures;
-    const result = runMonteCarlo({ simulations: simulationCount, fixtureList }) as ForecastResult;
+    const result = runMonteCarlo({ simulations: simulationCount, teamList: teams, fixtureList }) as ForecastResult;
     setForecast(result);
     setSelectedTeamId((current) => current ?? result.probabilities[0]?.teamId);
   }
@@ -260,7 +249,7 @@ export function MatchCentreApp() {
               <div className="match-list" aria-live="polite">
                 <div className="date-divider">{shortDate(visibleMatches[0].kickoff)}</div>
                 {visibleMatches.map((match) => (
-                  <FixtureCard key={match.id} match={match} />
+                  <FixtureCard key={match.id} match={match} teamsById={teamsById} />
                 ))}
               </div>
             </div>
@@ -280,7 +269,7 @@ export function MatchCentreApp() {
                 </div>
                 <div className="standings-grid">
                   {currentStandings.map((rows) => (
-                    <StandingTable key={rows[0].group} rows={rows} />
+                    <StandingTable key={rows[0].group} rows={rows} teamsById={teamsById} />
                   ))}
                 </div>
               </div>
@@ -294,7 +283,7 @@ export function MatchCentreApp() {
                 </div>
                 <div className="standings-grid">
                   {projectedStandings.map((rows) => (
-                    <StandingTable key={rows[0].group} rows={rows} />
+                    <StandingTable key={rows[0].group} rows={rows} teamsById={teamsById} />
                   ))}
                 </div>
               </div>
@@ -335,7 +324,7 @@ export function MatchCentreApp() {
                                 className={`match-chip ${match.winnerId === teamId ? "winner" : ""}`}
                               >
                                 <span>
-                                  {teamFlag(teamId)} {teamName(teamId)}
+                                  {teamFlag(teamId, teamsById)} {teamName(teamId, teamsById)}
                                 </span>
                                 <span>{match.score?.[teamId] ?? "-"}</span>
                               </div>
@@ -390,7 +379,7 @@ export function MatchCentreApp() {
                     <article className="favorite-card" key={team.teamId}>
                       <span className="eyebrow">#{index + 1} title odds</span>
                       <strong>
-                        {teamFlag(team.teamId)} {team.name}
+                        {teamFlag(team.teamId, teamsById)} {team.name}
                       </strong>
                       <div className="metric">
                         <span>Champion</span>
@@ -402,7 +391,11 @@ export function MatchCentreApp() {
                     </article>
                   ))}
                 </div>
-                <TeamDetail team={selectedTeam} finish={forecast.sampleBracket.teamFinishes[selectedTeam.teamId]} />
+                <TeamDetail
+                  team={selectedTeam}
+                  finish={forecast.sampleBracket.teamFinishes[selectedTeam.teamId]}
+                  teamsById={teamsById}
+                />
               </aside>
 
               <div className="panel table-panel">
@@ -436,7 +429,7 @@ export function MatchCentreApp() {
                         >
                           <td>
                             <span className="team-name">
-                              <span className="flag-badge">{teamFlag(team.teamId)}</span>
+                              <span className="flag-badge">{teamFlag(team.teamId, teamsById)}</span>
                               {team.name}
                             </span>
                           </td>
@@ -474,7 +467,7 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function FixtureCard({ match }: { match: Fixture }) {
+function FixtureCard({ match, teamsById }: { match: AppFixture; teamsById: Record<string, AppTeam> }) {
   return (
     <article className="fixture-card">
       <div className="match-meta">
@@ -483,27 +476,41 @@ function FixtureCard({ match }: { match: Fixture }) {
         <span>{match.venue}</span>
       </div>
       <div className="teams-score">
-        <ScoreRow teamId={match.homeTeamId} score={scoreCell(match, "home")} />
-        <ScoreRow teamId={match.awayTeamId} score={scoreCell(match, "away")} />
+        <ScoreRow teamId={match.homeTeamId} score={scoreCell(match, "home")} teamsById={teamsById} />
+        <ScoreRow teamId={match.awayTeamId} score={scoreCell(match, "away")} teamsById={teamsById} />
       </div>
       <div className="scorers">{scorerText(match)}</div>
     </article>
   );
 }
 
-function ScoreRow({ teamId, score }: { teamId: string; score: string | number }) {
+function ScoreRow({
+  teamId,
+  score,
+  teamsById
+}: {
+  teamId: string;
+  score: string | number;
+  teamsById: Record<string, AppTeam>;
+}) {
   return (
     <div className="score-row">
       <span className="team-inline">
-        <span className="flag-badge">{teamFlag(teamId)}</span>
-        {teamName(teamId)}
+        <span className="flag-badge">{teamFlag(teamId, teamsById)}</span>
+        {teamName(teamId, teamsById)}
       </span>
       <span className="score">{score}</span>
     </div>
   );
 }
 
-function StandingTable({ rows }: { rows: ReturnType<typeof buildStandings>[number] }) {
+function StandingTable({
+  rows,
+  teamsById
+}: {
+  rows: ReturnType<typeof buildStandings>[number];
+  teamsById: Record<string, AppTeam>;
+}) {
   return (
     <article className="standing-card">
       <h3>Group {rows[0].group}</h3>
@@ -524,7 +531,7 @@ function StandingTable({ rows }: { rows: ReturnType<typeof buildStandings>[numbe
               <td>{index + 1}</td>
               <td>
                 <span className="team-name compact">
-                  {teamFlag(row.teamId)} {teamName(row.teamId)}
+                  {teamFlag(row.teamId, teamsById)} {teamName(row.teamId, teamsById)}
                 </span>
               </td>
               <td>{row.played}</td>
@@ -546,17 +553,19 @@ function StandingTable({ rows }: { rows: ReturnType<typeof buildStandings>[numbe
 
 function TeamDetail({
   team,
-  finish
+  finish,
+  teamsById
 }: {
   team: ForecastResult["probabilities"][number];
   finish: string;
+  teamsById: Record<string, AppTeam>;
 }) {
   return (
     <div className="team-detail">
       <div>
         <p className="eyebrow">Group {team.group}</p>
         <h3>
-          {teamFlag(team.teamId)} {team.name}
+          {teamFlag(team.teamId, teamsById)} {team.name}
         </h3>
       </div>
       <div className="route-list">
@@ -579,15 +588,15 @@ function RouteRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function buildStandings(matchList: Fixture[]) {
-  return groupLabels().map((group) => {
-    const groupTeams = teams.filter((team) => team.group === group);
+function buildStandings(matchList: AppFixture[], teamList: AppTeam[]) {
+  return groupLabels(teamList).map((group) => {
+    const groupTeams = teamList.filter((team) => team.group === group);
     const groupFixtures = matchList.filter((match) => match.group === group);
     return rankGroup(buildGroupTable(groupTeams, groupFixtures));
   });
 }
 
-function completedFixtures(fixtureList = fixtures) {
+function completedFixtures(fixtureList: AppFixture[]) {
   return fixtureList.filter(
     (match) =>
       match.status === "FT" &&
@@ -596,11 +605,11 @@ function completedFixtures(fixtureList = fixtures) {
   );
 }
 
-function groupLabels() {
-  return [...new Set(teams.map((team) => team.group))].sort();
+function groupLabels(teamList: AppTeam[]) {
+  return [...new Set(teamList.map((team) => team.group))].sort();
 }
 
-function scorerText(match: Fixture) {
+function scorerText(match: AppFixture) {
   if (!match.scorers.length) {
     return match.status === "FT" ? "No scorer data" : `${match.venue} · ${timeLabel(match.kickoff)}`;
   }
@@ -608,7 +617,7 @@ function scorerText(match: Fixture) {
   return match.scorers.map((scorer) => `${scorer.player} ${scorer.minute}'`).join(" · ");
 }
 
-function scoreCell(match: Fixture, side: "home" | "away") {
+function scoreCell(match: AppFixture, side: "home" | "away") {
   const goals = side === "home" ? match.homeGoals : match.awayGoals;
   return match.status === "FT" && typeof goals === "number" ? goals : "-";
 }
@@ -617,12 +626,12 @@ function formatPercent(value: number) {
   return `${Math.round(value * 1000) / 10}%`;
 }
 
-function teamName(teamId: string) {
+function teamName(teamId: string, teamsById: Record<string, AppTeam>) {
   return teamsById[teamId]?.name ?? teamId;
 }
 
-function teamFlag(teamId: string) {
-  return flags[teamId] ?? "◦";
+function teamFlag(teamId: string, teamsById: Record<string, AppTeam>) {
+  return teamsById[teamId]?.flagEmoji ?? flags[teamId] ?? "◦";
 }
 
 function titleCase(value: string) {

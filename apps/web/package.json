@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
     "@wc/tournament-engine": "file:../../packages/tournament-engine",
     "next": "^16.0.0",
     "react": "^19.2.0",
