@@ -50,6 +50,18 @@ Do not expose provider API tokens, the Supabase service role key, database URL, 
 
 Future ingestion workers should store private secrets only in the worker host's secret manager. They should not be added to this repository, `.env.example`, or Vercel client-facing configuration.
 
+## Private Ingestion Worker Secrets
+
+The ingestion worker must be deployed separately from the public Next.js client. Store these values only in the worker host's secret manager:
+
+```text
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SPORTMONKS_API_TOKEN=
+```
+
+Do not prefix these values with `NEXT_PUBLIC_`. Do not commit them to `.env`, `.env.example`, Vercel project settings for the browser app, or any checked-in config file.
+
 ## GitHub
 
 Until `gh` is re-authenticated, create the GitHub repository manually or run:
