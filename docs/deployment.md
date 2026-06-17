@@ -70,6 +70,18 @@ npm run ingestion:mapping-dry-run
 
 This command uses sanitized sample data and performs no network calls or database writes.
 
+To validate a real mapping file without writing to Supabase:
+
+```bash
+npm run ingestion:import-mappings -- --file path/to/provider-mappings.json
+```
+
+To apply a reviewed mapping file, run from a private worker environment with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` configured as secrets:
+
+```bash
+npm run ingestion:import-mappings -- --file path/to/provider-mappings.json --apply
+```
+
 ## GitHub
 
 Until `gh` is re-authenticated, create the GitHub repository manually or run:
