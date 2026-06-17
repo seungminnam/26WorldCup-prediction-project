@@ -1,0 +1,77 @@
+{
+  "data": {
+    "id": 991001,
+    "name": "Korea Republic vs Czechia",
+    "starting_at": "2026-06-12T19:00:00Z",
+    "state": {
+      "short_name": "FT"
+    },
+    "participants": [
+      {
+        "id": 7001,
+        "name": "Korea Republic",
+        "meta": {
+          "location": "home"
+        }
+      },
+      {
+        "id": 7002,
+        "name": "Czechia",
+        "meta": {
+          "location": "away"
+        }
+      }
+    ],
+    "scores": [
+      {
+        "description": "CURRENT",
+        "score": {
+          "participant": "home",
+          "goals": 2
+        }
+      },
+      {
+        "description": "CURRENT",
+        "score": {
+          "participant": "away",
+          "goals": 1
+        }
+      }
+    ],
+    "events": [
+      {
+        "id": 880001,
+        "type_id": 14,
+        "type": {
+          "name": "Goal"
+        },
+        "participant_id": 7001,
+        "player_name": "Lee Kang-in",
+        "minute": 32,
+        "extra_minute": null
+      },
+      {
+        "id": 880002,
+        "type_id": 14,
+        "type": {
+          "name": "Goal"
+        },
+        "participant_id": 7002,
+        "player_name": "Patrik Schick",
+        "minute": 58,
+        "extra_minute": null
+      },
+      {
+        "id": 880003,
+        "type_id": 14,
+        "type": {
+          "name": "Goal"
+        },
+        "participant_id": 7001,
+        "player_name": "Son Heung-min",
+        "minute": 83,
+        "extra_minute": null
+      }
+    ]
+  }
+}

@@ -13,6 +13,8 @@
     "web:build": "npm run build --workspace apps/web",
     "web:start": "npm run start --workspace apps/web",
     "db:seed:generate": "node scripts/generate-supabase-seed.mjs",
+    "ingestion:test": "npm run test --workspace apps/ingestion-worker",
+    "ingestion:dry-run": "npm run dry-run --workspace apps/ingestion-worker",
     "test": "node --test",
     "check": "node --check src/**/*.js"
   }
