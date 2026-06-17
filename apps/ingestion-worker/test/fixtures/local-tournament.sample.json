@@ -1,0 +1,22 @@
+{
+  "teams": [
+    {
+      "id": "KOR",
+      "name": "Korea Republic",
+      "fifaCode": "KOR"
+    },
+    {
+      "id": "CZE",
+      "name": "Czechia",
+      "fifaCode": "CZE"
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "A-2",
+      "kickoffAt": "2026-06-12T19:00:00Z",
+      "homeTeamId": "KOR",
+      "awayTeamId": "CZE"
+    }
+  ]
+}

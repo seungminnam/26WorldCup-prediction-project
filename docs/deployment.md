@@ -76,6 +76,14 @@ To validate a real mapping file without writing to Supabase:
 npm run ingestion:import-mappings -- --file path/to/provider-mappings.json
 ```
 
+To generate a mapping file from a local tournament snapshot and a sanitized provider fixture payload:
+
+```bash
+npm run ingestion:discover-mappings -- \
+  --local-file path/to/local-tournament.json \
+  --provider-file path/to/sportmonks-fixtures.json
+```
+
 To apply a reviewed mapping file, run from a private worker environment with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` configured as secrets:
 
 ```bash

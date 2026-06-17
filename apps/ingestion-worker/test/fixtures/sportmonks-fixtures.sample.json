@@ -1,0 +1,27 @@
+{
+  "data": [
+    {
+      "id": 991001,
+      "name": "Korea Republic vs Czechia",
+      "starting_at": "2026-06-12T19:00:00Z",
+      "league_id": 9001,
+      "season_id": 2026,
+      "participants": [
+        {
+          "id": 7001,
+          "name": "Korea Republic",
+          "meta": {
+            "location": "home"
+          }
+        },
+        {
+          "id": 7002,
+          "name": "Czechia",
+          "meta": {
+            "location": "away"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -7,7 +7,8 @@
     "test": "node --test",
     "dry-run": "node src/cli/dry-run.js",
     "mapping-dry-run": "node src/cli/import-mappings.js --file apps/ingestion-worker/test/fixtures/provider-mappings.sample.json",
-    "import-mappings": "node src/cli/import-mappings.js"
+    "import-mappings": "node src/cli/import-mappings.js",
+    "discover-mappings": "node src/cli/discover-mappings.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2"
