@@ -45,11 +45,11 @@ Later Supabase integration should add:
 
 ```text
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-Do not expose the service role key to browser code.
+Do not expose the service role key, database URL, or any secret key to browser code. In Next.js, only variables prefixed with `NEXT_PUBLIC_` are bundled for the client, so keep that prefix limited to browser-safe Supabase values.
 
 ## GitHub
 
