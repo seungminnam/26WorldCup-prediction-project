@@ -44,6 +44,12 @@ npm run typecheck --workspace apps/web
 npm run build --workspace apps/web
 ```
 
+## Development Workflow
+
+This public repository uses short-lived branches and pull requests. Do not push feature work directly to `main`.
+
+See [docs/git-workflow.md](docs/git-workflow.md) for the branch strategy, CI requirements, Supabase migration rules, and secret-handling policy.
+
 ## Current MVP Limits
 
 - The seed dataset is manually maintained from public schedule references and must be replaced by Supabase-backed verified data before production.
