@@ -10,6 +10,7 @@ Use Next.js on Vercel for the web app, Supabase Postgres for persisted match/mod
 - **Supabase Postgres**: good fit for fixtures, teams, match events, model runs, cached probabilities, and admin-edited locked results.
 - **Python training pipeline**: better fit than JavaScript for modeling, feature engineering, backtesting, and evaluation.
 - **TypeScript simulation engine**: keeps the tournament rules and web-facing simulation logic close to the UI.
+- **Private ingestion worker**: best fit for paid provider sync, near-live match polling, and secret handling outside the public web app.
 
 ## Proposed Architecture
 
@@ -31,6 +32,10 @@ Use Next.js on Vercel for the web app, Supabase Postgres for persisted match/mod
   - train model locally or in scheduled jobs
   - export ratings/probabilities
   - write model outputs to Supabase
+- `Private ingestion worker`
+  - poll provider fixtures/results/events
+  - write canonical match updates to Supabase
+  - trigger current-snapshot forecast recomputation
 - `TypeScript engine`
   - group ranking
   - best-third selection

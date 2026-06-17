@@ -39,17 +39,16 @@ npm run build
 
 ## Environment Variables
 
-No environment variables are required for the current static/forecast MVP.
-
-Later Supabase integration should add:
+The deployed web app reads public tournament data from Supabase. Configure only browser-safe values in Vercel for the Next.js app:
 
 ```text
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-Do not expose the service role key, database URL, or any secret key to browser code. In Next.js, only variables prefixed with `NEXT_PUBLIC_` are bundled for the client, so keep that prefix limited to browser-safe Supabase values.
+Do not expose provider API tokens, the Supabase service role key, database URL, database password, or any other secret to browser code. In Next.js, variables prefixed with `NEXT_PUBLIC_` are bundled for the client, so keep that prefix limited to browser-safe Supabase values.
+
+Future ingestion workers should store private secrets only in the worker host's secret manager. They should not be added to this repository, `.env.example`, or Vercel client-facing configuration.
 
 ## GitHub
 

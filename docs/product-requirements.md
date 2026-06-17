@@ -57,13 +57,21 @@ Use primary tabs rather than a long scroll page:
 - Show a sortable-style probability table, initially sorted by champion probability.
 - Show selected-team drill-down.
 
+### Phase 2 Live Data
+
+- Ingest fixture, result, and match-event data from a paid provider rather than relying on static seed data.
+- Show feed freshness and forecast cutoff timestamps.
+- Recompute current-snapshot forecasts when live or final match state changes.
+- Keep model retraining separate from live score updates.
+
 ## 6. Non-Goals For Current MVP
 
-- Live FIFA data ingestion.
+- Official FIFA scraping as the primary data source.
 - User accounts.
 - Admin CMS.
 - Official FIFA branding assets.
 - Fully compliant FIFA Annex C lookup table.
+- Betting-grade second-by-second live guarantees.
 - Production-trained model.
 
 ## 7. Recommended Tech Stack
