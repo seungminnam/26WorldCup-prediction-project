@@ -1,0 +1,32 @@
+{
+  "provider": {
+    "id": "sportmonks",
+    "name": "Sportmonks",
+    "baseUrl": "https://api.sportmonks.com",
+    "status": "evaluation",
+    "notes": "Sanitized sample mapping payload for ingestion worker tests."
+  },
+  "teams": [
+    {
+      "teamId": "KOR",
+      "providerTeamId": "7001",
+      "providerName": "Korea Republic",
+      "providerCode": "KOR"
+    },
+    {
+      "teamId": "CZE",
+      "providerTeamId": "7002",
+      "providerName": "Czechia",
+      "providerCode": "CZE"
+    }
+  ],
+  "fixtures": [
+    {
+      "fixtureId": "A-2",
+      "providerFixtureId": "991001",
+      "providerSeasonId": "2026",
+      "providerLeagueId": "world-cup-2026",
+      "lastPayloadHash": "sample-hash-kor-cze"
+    }
+  ]
+}

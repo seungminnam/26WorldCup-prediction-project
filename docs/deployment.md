@@ -62,6 +62,14 @@ SPORTMONKS_API_TOKEN=
 
 Do not prefix these values with `NEXT_PUBLIC_`. Do not commit them to `.env`, `.env.example`, Vercel project settings for the browser app, or any checked-in config file.
 
+Before configuring real provider credentials, validate mapping payloads locally:
+
+```bash
+npm run ingestion:mapping-dry-run
+```
+
+This command uses sanitized sample data and performs no network calls or database writes.
+
 ## GitHub
 
 Until `gh` is re-authenticated, create the GitHub repository manually or run:

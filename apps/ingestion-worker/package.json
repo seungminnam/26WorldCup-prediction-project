@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "dry-run": "node src/cli/dry-run.js"
+    "dry-run": "node src/cli/dry-run.js",
+    "mapping-dry-run": "node src/cli/mapping-dry-run.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2"

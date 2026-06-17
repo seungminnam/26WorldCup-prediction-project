@@ -1,20 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
-export function createSupabaseWriter({ url, serviceRoleKey }) {
-  if (!url) {
-    throw new Error("SUPABASE_URL is required for ingestion writes");
-  }
-
-  if (!serviceRoleKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for ingestion writes");
-  }
-
-  const client = createClient(url, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
+export function createSupabaseWriter({ url, serviceRoleKey, client: injectedClient } = {}) {
+  const client = injectedClient ?? createServerClient({ url, serviceRoleKey });
 
   return {
     async applyLiveScorePlan(plan) {
@@ -43,6 +30,53 @@ export function createSupabaseWriter({ url, serviceRoleKey }) {
         fixtureId: plan.fixture.id,
         eventsChanged: plan.events.length
       };
+    },
+
+    async applyProviderMappingPlan(plan) {
+      await upsertOrThrow(client, "data_providers", plan.provider, { onConflict: "id" });
+
+      if (plan.teamMappings.length > 0) {
+        await upsertOrThrow(client, "provider_team_mappings", plan.teamMappings, {
+          onConflict: "provider_id,team_id"
+        });
+      }
+
+      if (plan.fixtureMappings.length > 0) {
+        await upsertOrThrow(client, "provider_fixture_mappings", plan.fixtureMappings, {
+          onConflict: "provider_id,fixture_id"
+        });
+      }
+
+      return {
+        providerId: plan.provider.id,
+        teamMappingsChanged: plan.teamMappings.length,
+        fixtureMappingsChanged: plan.fixtureMappings.length
+      };
     }
   };
+}
+
+function createServerClient({ url, serviceRoleKey }) {
+  if (!url) {
+    throw new Error("SUPABASE_URL is required for ingestion writes");
+  }
+
+  if (!serviceRoleKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for ingestion writes");
+  }
+
+  return createClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+}
+
+async function upsertOrThrow(client, table, rows, options) {
+  const result = await client.from(table).upsert(rows, options);
+
+  if (result.error) {
+    throw result.error;
+  }
 }

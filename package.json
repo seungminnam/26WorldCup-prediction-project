@@ -15,6 +15,7 @@
     "db:seed:generate": "node scripts/generate-supabase-seed.mjs",
     "ingestion:test": "npm run test --workspace apps/ingestion-worker",
     "ingestion:dry-run": "npm run dry-run --workspace apps/ingestion-worker",
+    "ingestion:mapping-dry-run": "npm run mapping-dry-run --workspace apps/ingestion-worker",
     "test": "node --test",
     "check": "node --check src/**/*.js"
   }
