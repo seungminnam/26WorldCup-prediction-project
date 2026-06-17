@@ -1,6 +1,22 @@
+# OS/editor noise
 .DS_Store
+
+# Dependencies
 node_modules/
+
+# Local environment and secrets
 .env
-.codex-screenshots/
+.env.*
+!.env.example
+!.env.local.example
+
+# Build artifacts
 .next/
+apps/**/.next/
+dist/
+coverage/
 *.tsbuildinfo
+
+# Local tool state
+.vercel/
+.codex-screenshots/
