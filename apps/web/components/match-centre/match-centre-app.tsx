@@ -10,6 +10,7 @@ import {
   teams as teamSeed
 } from "@wc/tournament-engine";
 import type { AppFixture, AppTeam, TournamentData } from "@/lib/tournament-data";
+import { buildOutcomePresentation } from "@/lib/prediction-presentation";
 
 type TabName = "fixtures" | "standings" | "bracket" | "forecast";
 type MatchStatus = "FT" | "Upcoming" | "Result pending";
@@ -479,6 +480,13 @@ function FixtureCard({ match, teamsById }: { match: AppFixture; teamsById: Recor
     match.status === "Upcoming" && Number.isFinite(homeTeam?.rating) && Number.isFinite(awayTeam?.rating)
       ? predictMatch(homeTeam, awayTeam)
       : undefined;
+  const outcomes = prediction
+    ? buildOutcomePresentation({
+        homeName: homeTeam.name,
+        awayName: awayTeam.name,
+        probabilities: prediction.probabilities
+      })
+    : [];
 
   return (
     <article className="fixture-card">
@@ -500,10 +508,25 @@ function FixtureCard({ match, teamsById }: { match: AppFixture; teamsById: Recor
               Likely {prediction.mostLikelyScore.homeGoals}-{prediction.mostLikelyScore.awayGoals}
             </strong>
           </div>
-          <div className="outcome-probabilities" aria-label="Match outcome probabilities">
-            <ProbabilityCell label="Home" value={prediction.probabilities.homeWin} />
-            <ProbabilityCell label="Draw" value={prediction.probabilities.draw} />
-            <ProbabilityCell label="Away" value={prediction.probabilities.awayWin} />
+          <div className="probability-legend" aria-label="Match outcome probabilities">
+            {outcomes.map((outcome) => (
+              <div key={outcome.key} className={`probability-legend-item ${outcome.key}`}>
+                <span className="probability-name">
+                  <i className={`probability-dot ${outcome.key}`} aria-hidden="true" />
+                  <span title={outcome.label}>{outcome.label}</span>
+                </span>
+                <strong>{outcome.percentLabel}</strong>
+              </div>
+            ))}
+          </div>
+          <div className="probability-ribbon" aria-hidden="true">
+            {outcomes.map((outcome) => (
+              <span
+                key={outcome.key}
+                className={`probability-segment ${outcome.key}`}
+                style={{ width: outcome.width }}
+              />
+            ))}
           </div>
           <div className="likely-scorelines" aria-label="Most likely scorelines">
             {prediction.scorelines.map((scoreline) => (
@@ -516,14 +539,6 @@ function FixtureCard({ match, teamsById }: { match: AppFixture; teamsById: Recor
         </div>
       )}
     </article>
-  );
-}
-
-function ProbabilityCell({ label, value }: { label: string; value: number }) {
-  return (
-    <span>
-      {label} <strong>{Math.round(value * 100)}%</strong>
-    </span>
   );
 }
 
