@@ -23,6 +23,7 @@
     "ingestion:sync-api-football-live": "npm run sync-api-football-live --workspace apps/ingestion-worker --",
     "ingestion:fetch-espn-fixtures": "npm run fetch-espn-fixtures --workspace apps/ingestion-worker --",
     "ingestion:sync-espn-live": "npm run sync-espn-live --workspace apps/ingestion-worker --",
+    "ingestion:compare-football-data": "npm run compare-football-data --workspace apps/ingestion-worker --",
     "secret:scan": "bash scripts/secret-scan.sh",
     "test": "node --test",
     "check": "node --check src/**/*.js"

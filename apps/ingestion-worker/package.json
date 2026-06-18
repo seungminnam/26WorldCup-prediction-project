@@ -13,7 +13,8 @@
     "fetch-sportmonks-fixtures": "node --env-file-if-exists=.env.local src/cli/fetch-sportmonks-fixtures.js",
     "sync-api-football-live": "node --env-file-if-exists=.env.local src/cli/sync-api-football-live.js",
     "fetch-espn-fixtures": "node src/cli/fetch-espn-fixtures.js",
-    "sync-espn-live": "node --env-file-if-exists=.env.local src/cli/sync-espn-live.js"
+    "sync-espn-live": "node --env-file-if-exists=.env.local src/cli/sync-espn-live.js",
+    "compare-football-data": "node --env-file-if-exists=.env.local src/cli/compare-football-data.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2"

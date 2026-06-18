@@ -33,6 +33,28 @@ export function createSupabaseWriter({ url, serviceRoleKey, client: injectedClie
       };
     },
 
+    async loadCanonicalFixtures() {
+      const result = await client
+        .from("fixture_cards")
+        .select("id,kickoff_at,status,home_goals,away_goals,home_team_id,away_team_id");
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      return result.data ?? [];
+    },
+
+    async loadTeamNamesById() {
+      const result = await client.from("teams").select("id,name");
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      return new Map((result.data ?? []).map((row) => [row.id, row.name]));
+    },
+
     async recordIngestionRun(run) {
       const result = await client.rpc("record_ingestion_run", {
         p_source: run.source,

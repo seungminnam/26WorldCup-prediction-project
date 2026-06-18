@@ -203,6 +203,39 @@ test("records ingestion outcomes through the service-role RPC", async () => {
   ]);
 });
 
+test("loadCanonicalFixtures reads fixture cards for reconciliation", async () => {
+  const rows = [
+    { id: "A-2", kickoff_at: "2026-06-11T19:00:00Z", status: "final", home_goals: 2, away_goals: 0, home_team_id: "MEX", away_team_id: "RSA" }
+  ];
+  const client = {
+    from(table) {
+      assert.equal(table, "fixture_cards");
+      return {
+        select() {
+          return Promise.resolve({ data: rows, error: null });
+        }
+      };
+    }
+  };
+
+  const writer = createSupabaseWriter({ client });
+  const result = await writer.loadCanonicalFixtures();
+  assert.deepEqual(result, rows);
+});
+
+test("loadTeamNamesById reads the teams table as a name lookup", async () => {
+  const client = {
+    from(table) {
+      assert.equal(table, "teams");
+      return { select: () => Promise.resolve({ data: [{ id: "MEX", name: "Mexico" }], error: null }) };
+    }
+  };
+
+  const writer = createSupabaseWriter({ client });
+  const result = await writer.loadTeamNamesById();
+  assert.deepEqual(result, new Map([["MEX", "Mexico"]]));
+});
+
 function createRecordingClient(calls) {
   return {
     from(table) {
