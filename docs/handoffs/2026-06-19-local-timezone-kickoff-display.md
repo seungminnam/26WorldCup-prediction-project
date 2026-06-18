@@ -33,7 +33,9 @@
 - Web typecheck: passed.
 - Next.js production build: passed with the existing multi-lockfile root warning.
 - Secret scan and `git diff --check`: passed.
-- Browser verification remains incomplete. The in-app browser rejected the localhost reload under its URL security policy, so no claim is made about the observed abbreviation or hydration console state.
+- Browser verification passed after restarting the dev server at `http://127.0.0.1:3000/#fixtures`.
+- The live database rendered the 2026-06-19 pill with 2 matches and the fixture metadata `Los Angeles · 9:00 AM GMT+9` and `Vancouver · 12:00 PM GMT+9`.
+- The page had meaningful content, no framework overlay, no console errors, and no hydration warnings.
 - Remote API or Supabase writes: none.
 
 ## Workspace Caution
@@ -42,4 +44,4 @@ Do not delete or commit `.gstack/`, `.omc/`, or the untracked `* 2.js` / `* 2.md
 
 ## Exact Next Action
 
-Once localhost browser access is available, reload `http://127.0.0.1:3000/#fixtures`, confirm a kickoff string includes the detected-zone abbreviation, verify day-pill grouping/counts are unchanged, and check the console for hydration errors. Then update this handoff, run fresh verification, and choose the branch integration path.
+Choose the branch integration path. The local dev server is running at `http://127.0.0.1:3000/#fixtures` for user review.

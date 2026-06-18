@@ -387,24 +387,24 @@ git commit -m "feat: show kickoff times in the viewer's local timezone"
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Start the dev server**
+- [x] **Step 1: Start the dev server**
 
 ```bash
 npm run dev --workspace apps/web
 ```
 
-- [ ] **Step 2: Verify day-pill grouping is unaffected**
+- [x] **Step 2: Verify day-pill grouping is unaffected**
 
 Using the `/browse` skill (or a regular browser), load the running app and confirm the day-pill match counts and groupings are unchanged from before this change (still anchored to the same UTC-day boundaries as previously observed in this project's verification history).
 
-- [ ] **Step 3: Verify displayed times changed and include a zone abbreviation**
+- [x] **Step 3: Verify displayed times changed and include a zone abbreviation**
 
 Confirm fixture card times now read like `"6:00 PM KST"` or `"10:00 AM GMT+9"` style strings (exact abbreviation text depends on the browser's ICU data) rather than a bare time with no zone indicator.
 
-- [ ] **Step 4: Verify no hydration warning**
+- [x] **Step 4: Verify no hydration warning**
 
 Check the browser console for any React hydration mismatch warning. Expected: none — the SSR pass and first client paint both use `UTC` before the `useEffect` swaps to the detected zone.
 
-- [ ] **Step 5: Record the result**
+- [x] **Step 5: Record the result**
 
 No code changes in this task; this is a verification gate only. Note the observed abbreviation and confirm no console errors before considering this plan complete.
