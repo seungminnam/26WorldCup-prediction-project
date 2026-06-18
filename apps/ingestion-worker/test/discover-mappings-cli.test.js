@@ -13,9 +13,9 @@ test("parses discover mappings arguments", () => {
     {
       localFile: "local.json",
       providerFile: "api-football.json",
-      providerId: "api-football",
-      providerName: "API-Football",
-      providerBaseUrl: "https://v3.football.api-sports.io",
+      providerId: "espn",
+      providerName: "ESPN",
+      providerBaseUrl: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world",
       providerStatus: "evaluation"
     }
   );
@@ -25,13 +25,19 @@ test("requires local and provider files for discovery", () => {
   assert.throws(() => parseDiscoverMappingsArgs([]), /--local-file is required/);
 });
 
-test("runs mapping discovery from local files", async () => {
+test("retains explicit API-Football fallback discovery", async () => {
   const result = await runDiscoverMappings({
     argv: [
       "--local-file",
       "test/fixtures/local-tournament.sample.json",
       "--provider-file",
-      "test/fixtures/api-football-fixtures.sample.json"
+      "test/fixtures/api-football-fixtures.sample.json",
+      "--provider-id",
+      "api-football",
+      "--provider-name",
+      "API-Football",
+      "--provider-base-url",
+      "https://v3.football.api-sports.io"
     ],
     cwd: new URL("..", import.meta.url)
   });
