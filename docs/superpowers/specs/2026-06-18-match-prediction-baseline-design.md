@@ -45,7 +45,13 @@ The referenced Towards Data Science article compares ranking models (Elo, Colley
 
 This design therefore adopts the standardized prediction contract and explicit uncertainty, but does not copy all eleven models. New models are admitted only when chronological backtests show an improvement over `rating-poisson-v1`. Tournament output should eventually show model spread or ensemble intervals instead of presenting one champion probability as certain.
 
+The article's fitted negative-binomial dispersion is approximately `0.008`, so it produces almost the same probabilities as Poisson on that sample. Its XGBoost example assigns an implausible 64% draw probability to Spain-Morocco, illustrating failed calibration on only 358 matches. The simple multinomial logistic model performs better in cross-validation than the flexible classifiers. These results reinforce the decision to keep tonight's implementation simple and measurable.
+
+The published repository also warns that its strength ratings and market odds are illustrative snapshots. Its 358-match sample under-represents non-European teams and its tournament uses a simplified seeded knockout map. This project must not import its title probabilities or ratings as production data.
+
 Reference: [I Built 11 Models to Predict the 2026 World Cup. They Crown Four Different Champions.](https://towardsdatascience.com/i-built-11-models-to-predict-the-2026-world-cup-they-crown-four-different-champions/)
+
+Reference implementation: [arijoury/world-cup-2026-models](https://github.com/arijoury/world-cup-2026-models)
 
 ### UI
 
@@ -86,6 +92,8 @@ The trained model begins only after collecting a versioned historical internatio
 3. a simple regularized multinomial logistic model using rating difference, recency, venue, and competition importance
 
 Tree ensembles or neural networks are evaluated only after these baselines and only if the dataset is large enough. Evaluation uses chronological holdouts and reports log loss, Brier score, ranked probability score, calibration, and scoreline likelihood. A model is not promoted because it names a plausible champion; it must improve held-out probability quality and remain reproducible.
+
+The dataset must cover recent qualifiers, friendlies, continental competitions, and World Cups across every confederation. Each record needs an as-of timestamp so rating and feature generation cannot see future matches. Model comparison must distinguish genuinely independent inputs from models that merely transform the same rating prior.
 
 ## Git And Parallel-Work Strategy
 
