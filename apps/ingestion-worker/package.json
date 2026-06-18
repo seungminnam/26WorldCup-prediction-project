@@ -10,7 +10,8 @@
     "import-mappings": "node src/cli/import-mappings.js",
     "discover-mappings": "node src/cli/discover-mappings.js",
     "fetch-api-football-fixtures": "node --env-file-if-exists=.env.local src/cli/fetch-api-football-fixtures.js",
-    "fetch-sportmonks-fixtures": "node --env-file-if-exists=.env.local src/cli/fetch-sportmonks-fixtures.js"
+    "fetch-sportmonks-fixtures": "node --env-file-if-exists=.env.local src/cli/fetch-sportmonks-fixtures.js",
+    "sync-api-football-live": "node --env-file-if-exists=.env.local src/cli/sync-api-football-live.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2"

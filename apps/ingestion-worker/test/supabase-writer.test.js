@@ -93,6 +93,116 @@ test("applies provider mapping plan with deterministic upsert order", async () =
   ]);
 });
 
+test("loads provider fixture and team mappings", async () => {
+  const queries = [];
+  const writer = createSupabaseWriter({
+    client: {
+      from(table) {
+        return {
+          select(columns) {
+            return {
+              async eq(column, value) {
+                queries.push({ table, columns, column, value });
+                if (table === "provider_fixture_mappings") {
+                  return {
+                    data: [{ provider_fixture_id: "1199001", fixture_id: "A-2" }],
+                    error: null
+                  };
+                }
+                return {
+                  data: [
+                    { provider_team_id: "7001", team_id: "KOR" },
+                    { provider_team_id: "7002", team_id: "CZE" }
+                  ],
+                  error: null
+                };
+              }
+            };
+          }
+        };
+      }
+    }
+  });
+
+  const mappings = await writer.loadProviderMappings("api-football");
+
+  assert.deepEqual(queries, [
+    {
+      table: "provider_fixture_mappings",
+      columns: "provider_fixture_id,fixture_id",
+      column: "provider_id",
+      value: "api-football"
+    },
+    {
+      table: "provider_team_mappings",
+      columns: "provider_team_id,team_id",
+      column: "provider_id",
+      value: "api-football"
+    }
+  ]);
+  assert.deepEqual(Array.from(mappings.fixtureByProviderId), [["1199001", "A-2"]]);
+  assert.deepEqual(Array.from(mappings.teamByProviderId), [
+    ["7001", "KOR"],
+    ["7002", "CZE"]
+  ]);
+});
+
+test("rejects provider mapping query errors", async () => {
+  const expectedError = new Error("mapping query failed");
+  const writer = createSupabaseWriter({
+    client: {
+      from() {
+        return {
+          select() {
+            return {
+              async eq() {
+                return { data: null, error: expectedError };
+              }
+            };
+          }
+        };
+      }
+    }
+  });
+
+  await assert.rejects(() => writer.loadProviderMappings("api-football"), expectedError);
+});
+
+test("records ingestion outcomes through the service-role RPC", async () => {
+  const calls = [];
+  const writer = createSupabaseWriter({
+    client: {
+      async rpc(name, params) {
+        calls.push({ name, params });
+        return { data: "run-id", error: null };
+      }
+    }
+  });
+
+  await writer.recordIngestionRun({
+    source: "api-football",
+    status: "completed",
+    rowsSeen: 1,
+    rowsChanged: 1,
+    errorMessage: null,
+    metadata: { remaining: 87 }
+  });
+
+  assert.deepEqual(calls, [
+    {
+      name: "record_ingestion_run",
+      params: {
+        p_source: "api-football",
+        p_status: "completed",
+        p_rows_seen: 1,
+        p_rows_changed: 1,
+        p_error_message: null,
+        p_metadata: { remaining: 87 }
+      }
+    }
+  ]);
+});
+
 function createRecordingClient(calls) {
   return {
     from(table) {

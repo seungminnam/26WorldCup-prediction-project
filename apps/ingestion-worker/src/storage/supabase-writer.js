@@ -4,6 +4,52 @@ export function createSupabaseWriter({ url, serviceRoleKey, client: injectedClie
   const client = injectedClient ?? createServerClient({ url, serviceRoleKey });
 
   return {
+    async loadProviderMappings(providerId) {
+      const fixtureResult = await client
+        .from("provider_fixture_mappings")
+        .select("provider_fixture_id,fixture_id")
+        .eq("provider_id", providerId);
+
+      if (fixtureResult.error) {
+        throw fixtureResult.error;
+      }
+
+      const teamResult = await client
+        .from("provider_team_mappings")
+        .select("provider_team_id,team_id")
+        .eq("provider_id", providerId);
+
+      if (teamResult.error) {
+        throw teamResult.error;
+      }
+
+      return {
+        fixtureByProviderId: new Map(
+          (fixtureResult.data ?? []).map((row) => [row.provider_fixture_id, row.fixture_id])
+        ),
+        teamByProviderId: new Map(
+          (teamResult.data ?? []).map((row) => [row.provider_team_id, row.team_id])
+        )
+      };
+    },
+
+    async recordIngestionRun(run) {
+      const result = await client.rpc("record_ingestion_run", {
+        p_source: run.source,
+        p_status: run.status,
+        p_rows_seen: run.rowsSeen,
+        p_rows_changed: run.rowsChanged,
+        p_error_message: run.errorMessage ?? null,
+        p_metadata: run.metadata ?? {}
+      });
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      return result.data;
+    },
+
     async applyLiveScorePlan(plan) {
       const fixtureResult = await client
         .from("fixtures")
