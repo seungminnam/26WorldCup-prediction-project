@@ -8,7 +8,7 @@ The next product step is to replace manual/static match data with a near-live sp
 
 ## Decision
 
-Use API-Football as the World Cup 2026 primary provider candidate. Its free plan exposes fixtures, livescores, events, lineups, and standings for the current season, which is enough to validate the portfolio MVP before paying for a higher polling allowance. Keep Sportmonks as a disabled fallback adapter during validation rather than extending its integration.
+Use ESPN's public, keyless scoreboard endpoint as the World Cup 2026 primary provider. API-Football was evaluated first but its free plan was empirically confirmed to reject the 2026 season entirely ("Free plans do not have access to this season, try from 2022 to 2024."), making it non-viable for a zero-cost MVP regardless of polling strategy; it is now `disabled`. football-data.org (official, free-tier-eligible) is wired in as a read-only reconciliation check, since its World Cup response has fixtures/scores/status but no goal-event data. Sportmonks remains a disabled fallback adapter, unchanged. See `docs/superpowers/specs/2026-06-18-espn-football-data-provider-transition-design.md` for the full evaluation and decision record.
 
 Use a hybrid update model:
 
@@ -104,10 +104,9 @@ Use smart polling instead of polling the entire tournament constantly.
 
 For fixtures starting within the next 30 minutes or currently live:
 
-- On the API-Football free plan, poll the competition-scoped live endpoint every 8-10 minutes during known match windows.
-- Keep at least 10 of the 100 daily calls in reserve for retries and final-result reconciliation.
-- On a paid plan, reduce the interval to approximately one minute if product needs justify it.
+- ESPN has no documented daily request cap, so poll the scoreboard endpoint every 10-15 minutes at all times rather than restricting to match windows.
 - Stop high-frequency polling after the provider marks the fixture final.
+- If ESPN ever becomes unavailable or is replaced, the same provider-adapter pattern (client/normalizer separated from canonical storage) supports swapping in a different source without changing the canonical data model.
 
 ### Post-Match Confirmation
 
@@ -172,7 +171,7 @@ The only unresolved runtime choice is where the high-frequency worker should liv
 - Supabase Scheduled Edge Functions for simpler low-frequency reconciliation.
 - Vercel Cron for web-app-adjacent scheduled jobs.
 
-Recommendation: start with a private Node worker plus Supabase scheduled reconciliation. The worker host invokes the one-shot API-Football sync command only during match windows, while the database and app stack remain unchanged.
+Recommendation: start with a private Node worker plus Supabase scheduled reconciliation. The worker host invokes the one-shot ESPN sync command on a fixed 10-15 minute cadence, while the database and app stack remain unchanged.
 
 ## References
 
