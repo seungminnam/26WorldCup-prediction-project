@@ -31,6 +31,20 @@ Use trunk-based development with a protected `main` branch.
 
 Keep branches short-lived. Prefer one coherent product or infrastructure change per branch.
 
+### Naming Policy
+
+- Name branches after the product or infrastructure change, never after the tool or agent used to create it.
+- Keep commit subjects focused on the repository change using Conventional Commit prefixes.
+- Keep PR titles and descriptions focused on behavior, architecture, risk, and verification evidence.
+- Do not include AI assistant, coding agent, or implementation-tool names in branch names, commit messages, PR titles, or PR descriptions.
+- When work supersedes an unmerged feature branch, create a clearly named successor branch from the required predecessor commit and document the dependency in the PR.
+
+Example transition branch:
+
+```text
+feat/api-football-provider-transition
+```
+
 ## Pull Request Rules
 
 Every PR should include:

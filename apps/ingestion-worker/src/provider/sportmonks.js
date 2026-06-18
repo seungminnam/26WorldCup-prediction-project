@@ -17,20 +17,29 @@ export function normalizeSportmonksLiveScore(payload) {
   return {
     provider: "sportmonks",
     providerFixtureId: String(payload.id),
+    providerLeagueId: optionalString(payload.league_id),
+    providerSeasonId: optionalString(payload.season_id),
     kickoffAt: payload.starting_at,
     status: normalizeState(payload.state?.short_name),
     home: {
       providerTeamId: String(homeParticipant.id),
       name: homeParticipant.name,
+      code: homeParticipant.short_code ?? null,
       goals: homeGoals
     },
     away: {
       providerTeamId: String(awayParticipant.id),
       name: awayParticipant.name,
+      code: awayParticipant.short_code ?? null,
       goals: awayGoals
     },
     events: normalizeEvents(payload.events ?? [])
   };
+}
+
+function optionalString(value) {
+  if (value === undefined || value === null || value === "") return null;
+  return String(value);
 }
 
 function findCurrentGoals(scores, participant) {

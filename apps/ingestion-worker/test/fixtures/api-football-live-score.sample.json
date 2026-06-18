@@ -1,0 +1,85 @@
+{
+  "response": [
+    {
+      "fixture": {
+        "id": 1199001,
+        "date": "2026-06-12T19:00:00+00:00",
+        "status": {
+          "short": "PEN",
+          "elapsed": 120
+        },
+        "venue": {
+          "id": 501,
+          "name": "Sample Stadium"
+        }
+      },
+      "league": {
+        "id": 1,
+        "season": 2026,
+        "round": "Round of 32"
+      },
+      "teams": {
+        "home": {
+          "id": 7001,
+          "name": "Korea Republic",
+          "code": "KOR"
+        },
+        "away": {
+          "id": 7002,
+          "name": "Czechia",
+          "code": "CZE"
+        }
+      },
+      "goals": {
+        "home": 2,
+        "away": 2
+      },
+      "score": {
+        "penalty": {
+          "home": 4,
+          "away": 3
+        }
+      },
+      "events": [
+        {
+          "time": {
+            "elapsed": 32,
+            "extra": null
+          },
+          "team": {
+            "id": 7001
+          },
+          "player": {
+            "id": 801,
+            "name": "Lee Kang-in"
+          },
+          "assist": {
+            "id": 802,
+            "name": "Son Heung-min"
+          },
+          "type": "Goal",
+          "detail": "Normal Goal"
+        },
+        {
+          "time": {
+            "elapsed": 90,
+            "extra": 4
+          },
+          "team": {
+            "id": 7002
+          },
+          "player": {
+            "id": 803,
+            "name": "Patrik Schick"
+          },
+          "assist": {
+            "id": null,
+            "name": null
+          },
+          "type": "Goal",
+          "detail": "Penalty"
+        }
+      ]
+    }
+  ]
+}

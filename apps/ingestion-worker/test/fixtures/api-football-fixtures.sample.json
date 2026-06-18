@@ -1,0 +1,46 @@
+{
+  "response": [
+    {
+      "fixture": {
+        "id": 1199001,
+        "date": "2026-06-12T19:00:00+00:00",
+        "status": {
+          "short": "NS",
+          "elapsed": null
+        },
+        "venue": {
+          "id": 501,
+          "name": "Sample Stadium"
+        }
+      },
+      "league": {
+        "id": 1,
+        "season": 2026,
+        "round": "Group A - 1"
+      },
+      "teams": {
+        "home": {
+          "id": 7001,
+          "name": "Korea Republic",
+          "code": "KOR"
+        },
+        "away": {
+          "id": 7002,
+          "name": "Czechia",
+          "code": "CZE"
+        }
+      },
+      "goals": {
+        "home": null,
+        "away": null
+      },
+      "score": {
+        "penalty": {
+          "home": null,
+          "away": null
+        }
+      },
+      "events": []
+    }
+  ]
+}

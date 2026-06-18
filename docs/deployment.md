@@ -55,12 +55,12 @@ Future ingestion workers should store private secrets only in the worker host's 
 The ingestion worker must be deployed separately from the public Next.js client. Store these values only in the worker host's secret manager:
 
 ```text
+FOOTBALL_DATA_API_TOKEN=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
-SPORTMONKS_API_TOKEN=
 ```
 
-Do not prefix these values with `NEXT_PUBLIC_`. Do not commit them to `.env`, `.env.example`, Vercel project settings for the browser app, or any checked-in config file.
+Do not prefix these values with `NEXT_PUBLIC_`. Do not commit them to `.env`, `.env.example`, Vercel project settings for the browser app, or any checked-in config file. ESPN itself needs no credential — it is a keyless public endpoint.
 
 Before configuring real provider credentials, validate mapping payloads locally:
 
@@ -70,18 +70,33 @@ npm run ingestion:mapping-dry-run
 
 This command uses sanitized sample data and performs no network calls or database writes.
 
-To validate a real mapping file without writing to Supabase:
+To fetch the real ESPN fixture and team list into the gitignored local data directory:
 
 ```bash
-npm run ingestion:import-mappings -- --file path/to/provider-mappings.json
+npm run ingestion:fetch-espn-fixtures -- \
+  --date-from 2026-06-11 \
+  --date-to 2026-07-19 \
+  --fixtures-output .local-data/espn/fixtures-full.json \
+  --teams-output .local-data/espn/teams-full.json
 ```
 
-To generate a mapping file from a local tournament snapshot and a sanitized provider fixture payload:
+No key is required. ESPN has no documented daily request cap, so the full tournament window can be fetched in one call.
+
+To generate a mapping file from a local tournament snapshot and the fetched ESPN payloads:
 
 ```bash
 npm run ingestion:discover-mappings -- \
   --local-file path/to/local-tournament.json \
-  --provider-file path/to/sportmonks-fixtures.json
+  --provider-file .local-data/espn/fixtures-full.json \
+  --provider-teams-file .local-data/espn/teams-full.json
+```
+
+ESPN is the default discovery provider. `--provider-teams-file` filters out knockout fixtures whose slots are still unresolved placeholders (e.g. "Group A 2nd Place"); omit it only if you want every fixture including placeholders. API-Football and Sportmonks remain available only as explicit fallbacks by passing their provider ID, name, and base URL — API-Football's free plan no longer covers the active World Cup season, so it is `disabled` in `data_providers`.
+
+To validate a real mapping file without writing to Supabase:
+
+```bash
+npm run ingestion:import-mappings -- --file path/to/provider-mappings.json
 ```
 
 To apply a reviewed mapping file, run from a private worker environment with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` configured as secrets:
@@ -89,6 +104,46 @@ To apply a reviewed mapping file, run from a private worker environment with `SU
 ```bash
 npm run ingestion:import-mappings -- --file path/to/provider-mappings.json --apply
 ```
+
+After reviewed ESPN mappings exist in Supabase, run a live sync in dry-run mode:
+
+```bash
+npm run ingestion:sync-espn-live
+```
+
+The command polls a ±1-day window around the current date, loads mappings, and prints canonical write plans without changing fixture or event rows. Only a controlled private worker may enable writes:
+
+```bash
+npm run ingestion:sync-espn-live -- --apply
+```
+
+The private host scheduler owns the interval: invoke this command every 10-15 minutes, at all times (not just during match windows), since ESPN has no daily quota to conserve. There is no `quotaState` field — that concept was specific to API-Football's 100-request budget and does not apply here.
+
+To cross-check canonical fixtures against the official football-data.org source without writing anything:
+
+```bash
+npm run ingestion:compare-football-data -- --date-from 2026-06-18 --date-to 2026-06-25
+```
+
+This command requires `FOOTBALL_DATA_API_TOKEN` (free signup at football-data.org) and only prints a status/score agreement report. football-data.org's World Cup response has no goal-event data, so it can never be a source for `match_events` and has no `--apply` flag.
+
+## ESPN Validation Gate
+
+Status: **Run on 2026-06-18.** A full backfill sync (`--apply`) was performed covering the entire tournament window fetched so far (72 group-stage fixtures, fixture IDs A-1 through L-6).
+
+- Fixture count and competition identity: 104 fixtures returned for `league=fifa.world`, season 2026 (matches the known 104-match World Cup format); 72 of those correspond to this repository's currently-seeded group-stage fixtures.
+- Home/away participant and kickoff agreement: ESPN disagreed with this repository's hand-authored seed data on 69/72 kickoff timestamps and 10/72 home/away assignments. This was a defect in the seed data (it was always a manual placeholder, see `src/data/fixtures.js`'s own source-note), not an ESPN data-quality issue. Per the "fix canonical data, don't weaken matching" rule, the mapping-discovery input was corrected using ESPN as ground truth rather than relaxing the matcher; the committed `src/data/fixtures.js` kickoff/home-away values were intentionally left untouched to avoid disturbing the in-flight, already-verified prediction-baseline branch, which consumes the same data. The seed file's kickoff/home-away accuracy remains a known follow-up.
+- Team naming: ESPN uses different display names than this repository for six teams (e.g. "South Korea" vs. "Korea Republic", "Ivory Coast" vs. "Cote d'Ivoire", "Cape Verde" vs. "Cabo Verde", "Iran" vs. "IR Iran", "Bosnia-Herzegovina" vs. "Bosnia and Herzegovina"). All 48 teams mapped successfully once these aliases were applied during mapping discovery.
+- Status transitions observed: `scheduled` and `final` both observed and applied correctly (24 final, 48 scheduled at time of writing). `live`, `result_pending`, and `postponed` were not exercised because no match was in progress or disrupted during this validation.
+- Goal-event completeness: 75 goal/card events written across the 24 final fixtures, with scorer name and minute (including stoppage-time minutes). ESPN does not report assists — `assist_player_name` is always `null` for ESPN-sourced events. This is an accepted MVP gap, not a defect.
+- Penalty shootouts: not yet exercised — the tournament is still in the group stage, so no shootout has occurred. Re-verify `home_penalties`/`away_penalties`/`winner_team_id` once the knockout rounds begin.
+- Final-result correction: not separately tested in this pass; re-running `sync-espn-live --apply` is idempotent (`match_events` dedupes on `source, source_event_id`) and safe to use for corrections.
+- Request volume: no daily cap observed or applicable; 5 rapid sequential calls during initial verification all returned in under 0.25s with no throttling.
+- Display/redistribution rights: ESPN's endpoint is unofficial and undocumented (reverse-engineered from espn.com), acceptable for this personal, non-commercial portfolio project. Re-confirm licensing posture before any public launch announcement or commercial use.
+- Two real, previously-unexercised Supabase schema bugs were found and fixed during this validation (see migrations `20260618140319_fix_match_events_dedupe_index.sql` and `20260618140436_grant_ingestion_runs_select.sql`): a partial unique index could not be targeted by `ON CONFLICT`, and `record_ingestion_run`'s `RETURNING` clause needed a `SELECT` grant that was never present.
+- UI confirmation: the match centre at `apps/web` was run locally against this data with `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` configured; the rendered fixture data reported `"source":"supabase"` and showed real scorelines and scorer names (e.g. Mexico 2-0 South Africa, scorers Julián Quiñones and Santiago Giménez) rather than the static seed fallback.
+
+Decision: `espn` remains `evaluation` rather than `active` pending a shadow test through at least one scheduled-to-final match lifecycle during an actual live window, and re-verification once a knockout-stage penalty shootout occurs. The provider-selection migration (`20260618135649_select_espn_provider.sql`) has already been applied to the linked Supabase project directly, ahead of the repository's normal "merge to main first" migration policy, because the FK constraint on `provider_team_mappings`/`provider_fixture_mappings` made it a hard prerequisite for mapping import — this is a deliberate, documented exception, not a policy change.
 
 ## GitHub
 

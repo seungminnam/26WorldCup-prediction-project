@@ -15,7 +15,7 @@ export function discoverProviderMappings({ local, providerFixtures, provider }) 
     });
 
     if (!localFixture) {
-      throw new Error(`No local fixture match for provider fixture ${providerId}:${providerFixture.id}`);
+      throw new Error(`No local fixture match for provider fixture ${providerId}:${providerFixture.providerFixtureId}`);
     }
 
     const homeParticipant = providerParticipants.home;
@@ -23,22 +23,22 @@ export function discoverProviderMappings({ local, providerFixtures, provider }) 
 
     addTeamMapping(teamMappingsByTeamId, {
       teamId: localFixture.homeTeamId,
-      providerTeamId: String(homeParticipant.id),
+      providerTeamId: String(homeParticipant.providerTeamId),
       providerName: homeParticipant.name,
-      providerCode: null
+      providerCode: optionalString(homeParticipant.code)
     });
     addTeamMapping(teamMappingsByTeamId, {
       teamId: localFixture.awayTeamId,
-      providerTeamId: String(awayParticipant.id),
+      providerTeamId: String(awayParticipant.providerTeamId),
       providerName: awayParticipant.name,
-      providerCode: null
+      providerCode: optionalString(awayParticipant.code)
     });
 
     fixtureMappings.push({
       fixtureId: localFixture.id,
-      providerFixtureId: String(providerFixture.id),
-      providerSeasonId: optionalString(providerFixture.season_id),
-      providerLeagueId: optionalString(providerFixture.league_id),
+      providerFixtureId: String(providerFixture.providerFixtureId),
+      providerSeasonId: optionalString(providerFixture.providerSeasonId),
+      providerLeagueId: optionalString(providerFixture.providerLeagueId),
       lastPayloadHash: buildFixtureHash(providerId, providerFixture, homeParticipant, awayParticipant)
     });
   }
@@ -62,7 +62,7 @@ function findLocalFixture({ localFixtures, localTeamsById, providerFixture, prov
     const awayTeam = localTeamsById.get(fixture.awayTeamId);
 
     return (
-      normalizeInstant(fixture.kickoffAt) === normalizeInstant(providerFixture.starting_at) &&
+      normalizeInstant(fixture.kickoffAt) === normalizeInstant(providerFixture.kickoffAt) &&
       normalizeName(homeTeam?.name) === normalizeName(providerParticipants.home.name) &&
       normalizeName(awayTeam?.name) === normalizeName(providerParticipants.away.name)
     );
@@ -70,12 +70,11 @@ function findLocalFixture({ localFixtures, localTeamsById, providerFixture, prov
 }
 
 function getProviderParticipants(providerFixture) {
-  const participants = Array.isArray(providerFixture.participants) ? providerFixture.participants : [];
-  const home = participants.find((participant) => participant.meta?.location === "home");
-  const away = participants.find((participant) => participant.meta?.location === "away");
+  const home = providerFixture.home;
+  const away = providerFixture.away;
 
-  if (!home || !away) {
-    throw new Error(`Provider fixture ${providerFixture.id} is missing home or away participant`);
+  if (!home?.providerTeamId || !away?.providerTeamId) {
+    throw new Error(`Provider fixture ${providerFixture.providerFixtureId} is missing home or away participant`);
   }
 
   return { home, away };
@@ -92,10 +91,10 @@ function addTeamMapping(mappings, mapping) {
 function buildFixtureHash(providerId, providerFixture, homeParticipant, awayParticipant) {
   return [
     providerId,
-    providerFixture.id,
-    providerFixture.starting_at,
-    homeParticipant.id,
-    awayParticipant.id
+    providerFixture.providerFixtureId,
+    providerFixture.kickoffAt,
+    homeParticipant.providerTeamId,
+    awayParticipant.providerTeamId
   ].map(String).join(":");
 }
 

@@ -8,7 +8,7 @@ The next product step is to replace manual/static match data with a near-live sp
 
 ## Decision
 
-Use a paid football data provider as the primary source, with Sportmonks as the recommended first provider. Sportmonks exposes World Cup 2026-oriented documentation, fixtures endpoints, livescore endpoints, event includes, and recent-update livescore retrieval. That maps cleanly to the app's current Supabase schema.
+Use ESPN's public, keyless scoreboard endpoint as the World Cup 2026 primary provider. API-Football was evaluated first but its free plan was empirically confirmed to reject the 2026 season entirely ("Free plans do not have access to this season, try from 2022 to 2024."), making it non-viable for a zero-cost MVP regardless of polling strategy; it is now `disabled`. football-data.org (official, free-tier-eligible) is wired in as a read-only reconciliation check, since its World Cup response has fixtures/scores/status but no goal-event data. Sportmonks remains a disabled fallback adapter, unchanged. See `docs/superpowers/specs/2026-06-18-espn-football-data-provider-transition-design.md` for the full evaluation and decision record.
 
 Use a hybrid update model:
 
@@ -104,9 +104,9 @@ Use smart polling instead of polling the entire tournament constantly.
 
 For fixtures starting within the next 30 minutes or currently live:
 
-- Poll active livescore endpoint every 10-15 seconds if provider rate limits allow.
-- Poll less frequently, such as every 30-60 seconds, if no live state changes are detected.
+- ESPN has no documented daily request cap, so poll the scoreboard endpoint every 10-15 minutes at all times rather than restricting to match windows.
 - Stop high-frequency polling after the provider marks the fixture final.
+- If ESPN ever becomes unavailable or is replaced, the same provider-adapter pattern (client/normalizer separated from canonical storage) supports swapping in a different source without changing the canonical data model.
 
 ### Post-Match Confirmation
 
@@ -163,7 +163,7 @@ For production verification:
 - Map a small set of fixtures manually and verify updates.
 - Enable writes for fixtures first, then match events, then forecast triggers.
 
-## Open Implementation Choice
+## Runtime Choice
 
 The only unresolved runtime choice is where the high-frequency worker should live:
 
@@ -171,12 +171,12 @@ The only unresolved runtime choice is where the high-frequency worker should liv
 - Supabase Scheduled Edge Functions for simpler low-frequency reconciliation.
 - Vercel Cron for web-app-adjacent scheduled jobs.
 
-Recommendation: start with a private Node worker plus Supabase scheduled reconciliation. This gives enough control for active match polling while keeping the database and app stack unchanged.
+Recommendation: start with a private Node worker plus Supabase scheduled reconciliation. The worker host invokes the one-shot ESPN sync command on a fixed 10-15 minute cadence, while the database and app stack remain unchanged.
 
 ## References
 
-- Sportmonks Livescores: https://docs.sportmonks.com/v3/endpoints-and-entities/endpoints/livescores
-- Sportmonks Fixtures: https://docs.sportmonks.com/v3/endpoints-and-entities/endpoints/fixtures
-- Sportmonks Rate Limits: https://docs.sportmonks.com/v3/api/rate-limit
+- API-Football pricing: https://www.api-football.com/pricing
+- API-Football World Cup 2026 guide: https://www.api-football.com/news/post/fifa-world-cup-2026-guide-to-using-data-with-api-sports
+- API-Football documentation: https://www.api-football.com/documentation
 - Supabase Scheduled Edge Functions: https://supabase.com/docs/guides/functions/schedule-functions
 - Supabase Realtime Postgres Changes: https://supabase.com/docs/guides/realtime/postgres-changes

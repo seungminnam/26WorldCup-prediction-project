@@ -55,11 +55,28 @@ See [docs/git-workflow.md](docs/git-workflow.md) for the branch strategy, CI req
 - The seed dataset is manually maintained from public schedule references and must be replaced by Supabase-backed verified data before production.
 - The group ranking engine uses MVP tie-breakers: points, goal difference, goals for, then rating.
 - The Round of 32 assignment is an MVP-safe unique-slot mapping. A FIFA Annex C lookup table should replace it for official compliance.
-- Live score API updates are not included yet. Locked results can be added manually to fixture objects.
+- Production live writes are flowing from ESPN; a shadow test through a full scheduled-to-final match lifecycle and knockout-stage penalty-shootout verification are still pending before flipping the provider from `evaluation` to `active`.
+
+## ESPN Ingestion
+
+The private ingestion worker uses ESPN's public, keyless scoreboard endpoint as the World Cup 2026 primary source — no API key, no subscription, no documented daily request cap. football-data.org (official, free-tier-eligible) is wired in as a read-only reconciliation check only, because its World Cup response has no goal-event data. API-Football and Sportmonks are both `disabled`: API-Football's free plan does not cover the active World Cup season at all, and Sportmonks is paid.
+
+Since ESPN has no quota to conserve, the intended schedule is a fixed 10-15 minute poll at all times, not just during match windows.
+
+Useful offline checks:
+
+```bash
+npm run ingestion:test
+npm run ingestion:dry-run
+npm run ingestion:mapping-dry-run
+```
+
+Credentialed fetch, sync, and reconciliation commands are documented in [docs/deployment.md](docs/deployment.md). Real ESPN data has already been fetched, mapped, and applied to the linked Supabase project (see the ESPN Validation Gate section there for what was verified and what remains).
 
 ## Suggested Next Steps
 
-1. Replace synthetic teams and fixtures with official group data.
+1. Replace synthetic teams and fixtures with official group data, including correcting the hand-authored kickoff times and home/away assignments now known to disagree with ESPN (see the ESPN Validation Gate in [docs/deployment.md](docs/deployment.md)).
 2. Add locked-result editing in the UI for snapshot mode.
 3. Add the official Annex C third-place assignment table.
-4. Add What-if mode for custom result scenarios.
+4. Complete the ESPN scheduled-to-final shadow validation and penalty-shootout verification once the knockout stage begins.
+5. Add What-if mode for custom result scenarios.

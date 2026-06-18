@@ -1,0 +1,15 @@
+{
+  "sports": [
+    {
+      "leagues": [
+        {
+          "teams": [
+            { "team": { "id": "203", "displayName": "Mexico", "abbreviation": "MEX" } },
+            { "team": { "id": "774", "displayName": "South Africa", "abbreviation": "RSA" } },
+            { "team": { "id": "773", "displayName": "Czechia", "abbreviation": "CZE" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

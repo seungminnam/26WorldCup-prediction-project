@@ -487,7 +487,7 @@ create index fixtures_home_team_idx on public.fixtures (home_team_id);
 create index fixtures_away_team_idx on public.fixtures (away_team_id);
 create index match_events_fixture_idx on public.match_events (fixture_id);
 create index match_events_team_idx on public.match_events (team_id);
-create unique index match_events_source_event_dedupe_idx on public.match_events (source, source_event_id) where source_event_id is not null;
+create unique index match_events_source_event_dedupe_idx on public.match_events (source, source_event_id);
 create index forecast_runs_mode_created_idx on public.forecast_runs (mode, created_at desc) where visibility = 'public';
 create index forecast_probabilities_team_idx on public.forecast_probabilities (team_id);
 create index group_projection_group_idx on public.group_projection_snapshots (forecast_run_id, group_code);
@@ -545,3 +545,109 @@ set
   base_url = excluded.base_url,
   status = excluded.status,
   notes = excluded.notes;
+
+insert into public.data_providers (id, name, base_url, status, notes)
+values (
+  'api-football',
+  'API-Football',
+  'https://v3.football.api-sports.io',
+  'evaluation',
+  'Selected World Cup 2026 primary candidate; activate after fixture dry run and shadow validation.'
+)
+on conflict (id) do update
+set
+  name = excluded.name,
+  base_url = excluded.base_url,
+  status = excluded.status,
+  notes = excluded.notes;
+
+update public.data_providers
+set
+  status = 'disabled',
+  notes = 'Retained as a fallback adapter; not selected for the zero-cost MVP.'
+where id = 'sportmonks';
+
+insert into public.data_providers (id, name, base_url, status, notes)
+values (
+  'espn',
+  'ESPN (unofficial)',
+  'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world',
+  'evaluation',
+  'Primary World Cup 2026 source. Free, keyless, undocumented/unofficial endpoint reverse-engineered from espn.com. Activate after fixture dry run and shadow validation.'
+)
+on conflict (id) do update
+set
+  name = excluded.name,
+  base_url = excluded.base_url,
+  status = excluded.status,
+  notes = excluded.notes;
+
+insert into public.data_providers (id, name, base_url, status, notes)
+values (
+  'football-data',
+  'football-data.org',
+  'https://api.football-data.org/v4',
+  'evaluation',
+  'Reconciliation-only fallback. Official, free-tier-eligible, but its World Cup response has no goal-event data, so it never receives canonical writes.'
+)
+on conflict (id) do update
+set
+  name = excluded.name,
+  base_url = excluded.base_url,
+  status = excluded.status,
+  notes = excluded.notes;
+
+update public.data_providers
+set
+  status = 'disabled',
+  notes = 'Free plan rejects the 2026 season ("Free plans do not have access to this season, try from 2022 to 2024."). Kept as a dormant adapter in case of a future paid upgrade.'
+where id = 'api-football';
+
+grant usage on schema app_private to service_role;
+grant insert on table app_private.ingestion_runs to service_role;
+grant select on app_private.ingestion_runs to service_role;
+
+create or replace function public.record_ingestion_run(
+  p_source text,
+  p_status text,
+  p_rows_seen integer,
+  p_rows_changed integer,
+  p_error_message text default null,
+  p_metadata jsonb default '{}'::jsonb
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_id uuid;
+begin
+  insert into app_private.ingestion_runs (
+    source,
+    status,
+    completed_at,
+    rows_seen,
+    rows_changed,
+    error_message,
+    metadata
+  )
+  values (
+    p_source,
+    p_status,
+    now(),
+    p_rows_seen,
+    p_rows_changed,
+    p_error_message,
+    p_metadata
+  )
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+revoke all on function public.record_ingestion_run(text, text, integer, integer, text, jsonb)
+from public, anon, authenticated;
+grant execute on function public.record_ingestion_run(text, text, integer, integer, text, jsonb)
+to service_role;

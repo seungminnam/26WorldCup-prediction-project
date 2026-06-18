@@ -1,17 +1,17 @@
 import { readFile } from "node:fs/promises";
-import { normalizeSportmonksLiveScore } from "../provider/sportmonks.js";
+import { normalizeEspnFixture } from "../provider/espn.js";
 import { buildLiveScoreUpsertPlan } from "../sync/live-score.js";
 
 const payload = JSON.parse(
-  await readFile(new URL("../../test/fixtures/sportmonks-live-score.sample.json", import.meta.url), "utf8")
+  await readFile(new URL("../../test/fixtures/espn-scoreboard.sample.json", import.meta.url), "utf8")
 );
 
-const normalized = normalizeSportmonksLiveScore(payload.data);
+const normalized = normalizeEspnFixture(payload.events[0]);
 const plan = buildLiveScoreUpsertPlan(normalized, {
-  fixtureByProviderId: new Map([["991001", "A-2"]]),
+  fixtureByProviderId: new Map([["760415", "A-2"]]),
   teamByProviderId: new Map([
-    ["7001", "KOR"],
-    ["7002", "CZE"]
+    ["203", "MEX"],
+    ["774", "RSA"]
   ])
 });
 

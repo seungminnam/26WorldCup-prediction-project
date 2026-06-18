@@ -1,0 +1,20 @@
+{
+  "matches": [
+    {
+      "id": 537327,
+      "utcDate": "2026-06-11T19:00:00Z",
+      "status": "FINISHED",
+      "homeTeam": { "id": 769, "name": "Mexico" },
+      "awayTeam": { "id": 774, "name": "South Africa" },
+      "score": { "fullTime": { "home": 2, "away": 0 } }
+    },
+    {
+      "id": 537328,
+      "utcDate": "2026-06-18T16:00:00Z",
+      "status": "SCHEDULED",
+      "homeTeam": { "id": 774, "name": "South Africa" },
+      "awayTeam": { "id": 773, "name": "Czechia" },
+      "score": { "fullTime": { "home": null, "away": null } }
+    }
+  ]
+}

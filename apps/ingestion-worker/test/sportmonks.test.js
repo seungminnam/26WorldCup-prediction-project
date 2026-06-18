@@ -13,16 +13,20 @@ test("normalizes a Sportmonks-style finished livescore payload", async () => {
   assert.deepEqual(result, {
     provider: "sportmonks",
     providerFixtureId: "991001",
+    providerLeagueId: null,
+    providerSeasonId: null,
     kickoffAt: "2026-06-12T19:00:00Z",
     status: "final",
     home: {
       providerTeamId: "7001",
       name: "Korea Republic",
+      code: null,
       goals: 2
     },
     away: {
       providerTeamId: "7002",
       name: "Czechia",
+      code: null,
       goals: 1
     },
     events: [
