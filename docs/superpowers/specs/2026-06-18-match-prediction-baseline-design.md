@@ -19,6 +19,12 @@ The following work is deferred until the live path is usable:
 
 ## Architecture
 
+### Model Contract
+
+The UI consumes one provider-neutral prediction contract rather than importing a particular statistical model directly. Every current or future model must return the same shape: W/D/L probabilities, ranked scorelines when supported, model id/version, and a short methodology label.
+
+The first implementation is `rating-poisson-v1`. This keeps tonight's delivery small while allowing later Elo, Dixon-Coles, negative-binomial, classification, or ensemble implementations to be evaluated and swapped without rewriting fixture components.
+
 ### Prediction Engine
 
 Extend the tournament engine with a pure match-prediction function. It uses the existing team ratings and independent Poisson goal distributions to return:
@@ -32,6 +38,14 @@ Extend the tournament engine with a pure match-prediction function. It uses the 
 Probabilities must sum to one within floating-point tolerance. The score grid must include enough goals to capture nearly all probability mass, with any truncated tail normalized before returning results.
 
 The existing Monte Carlo tournament API remains compatible. No persisted model artifact or network dependency is introduced.
+
+### Evidence From The 11-Model Comparison
+
+The referenced Towards Data Science article compares ranking models (Elo, Colley, PageRank), goal distributions (Poisson and negative binomial), several classifiers, and a market benchmark through a standardized W/D/L interface and tournament simulation. Its most useful finding for this project is not a single winning algorithm: different model families select different champions, and complex models can overfit a small international-match sample.
+
+This design therefore adopts the standardized prediction contract and explicit uncertainty, but does not copy all eleven models. New models are admitted only when chronological backtests show an improvement over `rating-poisson-v1`. Tournament output should eventually show model spread or ensemble intervals instead of presenting one champion probability as certain.
+
+Reference: [I Built 11 Models to Predict the 2026 World Cup. They Crown Four Different Champions.](https://towardsdatascience.com/i-built-11-models-to-predict-the-2026-world-cup-they-crown-four-different-champions/)
 
 ### UI
 
@@ -65,5 +79,20 @@ Completed matches continue to emphasize actual results and do not substitute pre
 
 ## Later ML Phase
 
-The trained model begins only after collecting a versioned historical international-match dataset. The first candidate should remain interpretable: a calibrated Poisson or Dixon-Coles model with team strength, home/neutral venue, recency, and competition importance features. Evaluation uses chronological holdouts and reports log loss, Brier score, ranked probability score, calibration, and scoreline likelihood against the baseline in this document.
+The trained model begins only after collecting a versioned historical international-match dataset. The first candidates are deliberately narrow:
 
+1. dynamic Elo plus calibrated draw probability
+2. Dixon-Coles bivariate Poisson with team attack/defence strength
+3. a simple regularized multinomial logistic model using rating difference, recency, venue, and competition importance
+
+Tree ensembles or neural networks are evaluated only after these baselines and only if the dataset is large enough. Evaluation uses chronological holdouts and reports log loss, Brier score, ranked probability score, calibration, and scoreline likelihood. A model is not promoted because it names a plausible champion; it must improve held-out probability quality and remain reproducible.
+
+## Git And Parallel-Work Strategy
+
+- Shared documentation checkpoint: `eab97bb` on `feat/api-football-provider-transition`.
+- Prediction implementation branch: `feat/match-prediction-baseline`.
+- Prediction implementation worktree: `.worktrees/match-prediction-baseline`.
+- Branch and commit names describe product behavior and never identify the tool or agent that produced them.
+- Commits follow the repository's existing Conventional Commit form, for example `feat: add match outcome probability baseline` and `feat: show fixture prediction probabilities`.
+- The prediction branch changes only tournament-engine and match-centre presentation files. The ingestion branch retains provider, mapping, sync, migration, environment, and deployment-documentation ownership.
+- Integration happens after both workstreams verify independently. Rebase the prediction branch onto the latest ingestion branch, resolve only genuine shared-file changes, rerun the full suite, then open one coherent feature PR or a small stacked PR if the ingestion branch is reviewed separately.

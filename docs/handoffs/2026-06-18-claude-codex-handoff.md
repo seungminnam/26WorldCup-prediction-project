@@ -17,7 +17,7 @@ Have real World Cup schedule/results flowing to the match-centre UI and a clearl
 
 ## Codex Ownership
 
-Codex works on a separate branch/worktree after this documentation checkpoint:
+Codex works on `feat/match-prediction-baseline` in `.worktrees/match-prediction-baseline` after this documentation checkpoint:
 
 - pure rating/Poisson match prediction API
 - W/D/L and likely-score unit tests
@@ -33,6 +33,8 @@ Expected primary files:
 - related UI styles if required
 
 Codex does not modify ingestion provider, mapping, sync, Supabase migration, or deployment-documentation files in this parallel branch.
+
+Branch and commit names must describe the feature only. Do not include `codex`, `claude`, or any other agent/tool identity in them. Follow the repository's existing `feat:`, `fix:`, `test:`, and `docs:` commit style.
 
 ## Claude Ownership After Session Reset
 
@@ -52,6 +54,8 @@ Claude should avoid the Codex-owned engine and match-centre files until the Code
 
 Do not describe tonight's output as a trained ML model. The repository has no versioned historical training dataset, chronological holdout, or calibration pipeline. Tonight's deliverable is an explicit baseline that can later be used as the benchmark for a trained model.
 
+The external 11-model comparison is a research input, not an implementation checklist. Preserve its strongest ideas: one normalized W/D/L output contract, simple baselines, chronological validation, and visible model uncertainty. Do not add complex classifiers until they beat the baseline on held-out probability metrics.
+
 ## Update Protocol
 
 At every Claude/Codex switch, update this document with:
@@ -64,4 +68,3 @@ At every Claude/Codex switch, update this document with:
 - whether any remote API or Supabase write was performed
 
 Never record tokens, keys, project secrets, or raw credentialed output.
-
