@@ -21,3 +21,4 @@ coverage/
 # Local tool state
 .vercel/
 .codex-screenshots/
+.worktrees/
