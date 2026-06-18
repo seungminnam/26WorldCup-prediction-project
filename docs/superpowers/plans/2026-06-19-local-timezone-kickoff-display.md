@@ -31,7 +31,7 @@
 - Create: `apps/web/lib/timezone-display.js`
 - Create: `test/timezone-display.test.js`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `test/timezone-display.test.js`:
 
@@ -70,7 +70,7 @@ test("detectViewerTimeZone returns a non-empty IANA zone string", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 ```bash
 node --test test/timezone-display.test.js
@@ -78,7 +78,7 @@ node --test test/timezone-display.test.js
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `apps/web/lib/timezone-display.js`.
 
-- [ ] **Step 3: Implement the helpers**
+- [x] **Step 3: Implement the helpers**
 
 Create `apps/web/lib/timezone-display.js`:
 
@@ -115,7 +115,7 @@ export function formatKickoffTime(kickoff, timeZone) {
 }
 ```
 
-- [ ] **Step 4: Run the test and verify GREEN**
+- [x] **Step 4: Run the test and verify GREEN**
 
 ```bash
 node --test test/timezone-display.test.js
@@ -123,7 +123,7 @@ node --test test/timezone-display.test.js
 
 Expected: all 4 tests pass.
 
-- [ ] **Step 5: Run the full root test suite**
+- [x] **Step 5: Run the full root test suite**
 
 ```bash
 npm test
@@ -131,7 +131,7 @@ npm test
 
 Expected: exits `0`, includes the 4 new tests alongside the existing suite.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/lib/timezone-display.js test/timezone-display.test.js
@@ -145,7 +145,7 @@ git commit -m "feat: add pure timezone-aware kickoff formatting helpers"
 **Files:**
 - Modify: `apps/web/components/match-centre/match-centre-app.tsx`
 
-- [ ] **Step 1: Add the import and remove the old hardcoded helpers**
+- [x] **Step 1: Add the import and remove the old hardcoded helpers**
 
 At the top of `apps/web/components/match-centre/match-centre-app.tsx`, add this import alongside the existing `@/lib/...` imports (after the `buildOutcomePresentation` import):
 
@@ -188,7 +188,7 @@ function timeLabel(kickoff: string) {
 }
 ```
 
-- [ ] **Step 2: Add viewer-timezone state and detection**
+- [x] **Step 2: Add viewer-timezone state and detection**
 
 In the `MatchCentreApp` function body, find this line:
 
@@ -221,7 +221,7 @@ Add a new `useEffect` directly after it that detects the viewer's timezone once 
   }, []);
 ```
 
-- [ ] **Step 3: Replace all `dateKey`/`shortDate` call sites with the new functions**
+- [x] **Step 3: Replace all `dateKey`/`shortDate` call sites with the new functions**
 
 Replace every call site exactly as listed (find current line numbers via `grep -n "dateKey(\|shortDate(\|timeLabel(" apps/web/components/match-centre/match-centre-app.tsx`):
 
@@ -273,7 +273,7 @@ becomes
                 <div className="date-divider">{formatKickoffShortDate(visibleMatches[0].kickoff, viewerTimeZone)}</div>
 ```
 
-- [ ] **Step 4: Thread `viewerTimeZone` into `FixtureCard`**
+- [x] **Step 4: Thread `viewerTimeZone` into `FixtureCard`**
 
 Find the `FixtureCard` render call:
 
@@ -319,7 +319,7 @@ Replace with:
       <div className="scorers">{scorerText(match, viewerTimeZone)}</div>
 ```
 
-- [ ] **Step 5: Update `scorerText` to accept and use the viewer timezone**
+- [x] **Step 5: Update `scorerText` to accept and use the viewer timezone**
 
 Find:
 
@@ -347,7 +347,7 @@ function scorerText(match: AppFixture, viewerTimeZone: string) {
 }
 ```
 
-- [ ] **Step 6: Verify no other call sites remain**
+- [x] **Step 6: Verify no other call sites remain**
 
 ```bash
 grep -n "dateKey(\|shortDate(\|timeLabel(" apps/web/components/match-centre/match-centre-app.tsx
@@ -355,7 +355,7 @@ grep -n "dateKey(\|shortDate(\|timeLabel(" apps/web/components/match-centre/matc
 
 Expected: no matches (every call site now uses the imported `formatKickoff*` functions).
 
-- [ ] **Step 7: Run typecheck and build**
+- [x] **Step 7: Run typecheck and build**
 
 ```bash
 npm run typecheck --workspace apps/web
@@ -364,7 +364,7 @@ npm run build --workspace apps/web
 
 Expected: both exit `0` with no new errors.
 
-- [ ] **Step 8: Run the full test suite and secret scan**
+- [x] **Step 8: Run the full test suite and secret scan**
 
 ```bash
 npm test
@@ -374,7 +374,7 @@ git diff --check
 
 Expected: all pass, no matches, no whitespace errors.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add apps/web/components/match-centre/match-centre-app.tsx
