@@ -61,6 +61,22 @@ The match centre also displays whether its tournament data came from Supabase or
 
 Completed matches continue to emphasize actual results and do not substitute predictions for known scores.
 
+### Probability Ribbon
+
+The selected visual treatment is a responsive data ribbon:
+
+- Replace generic `Home` and `Away` outcome labels with the actual team names.
+- Show team names and percentages in a stable three-column legend above the bar: home team, draw, away team.
+- Render a single 100% stacked bar whose segment widths are the unmodified W/D/L percentages.
+- Keep the bar free of text so narrow segments never clip labels.
+- Do not repeat team-name captions below the bar.
+- Never apply a visual `min-width` to a probability segment because it would misrepresent the model output.
+- Keep each legend cell readable independently of its segment width; long country names use ellipsis only when the viewport cannot fit them.
+- Preserve the likely-score heading, top-three scoreline chips, methodology label, and non-ML disclosure.
+- On narrow viewports, retain all three legend cells and reduce typography/spacing rather than stacking outcomes vertically, so the left-to-right bar mapping remains intact.
+
+The component must remain accurate for extreme distributions such as `91% / 8% / 1%`: the 1% segment may be visually thin, while its country name and percentage remain fully readable in the legend.
+
 ## Data Flow
 
 1. `getTournamentData()` loads Supabase fixtures and teams, falling back to seed data on missing configuration, query errors, or empty results.
