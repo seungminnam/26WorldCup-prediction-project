@@ -2,10 +2,11 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { discoverProviderMappings } from "../mapping/discover-provider-mappings.js";
+import { normalizeProviderFixturePayload } from "../provider/provider-fixtures.js";
 
-const DEFAULT_PROVIDER_ID = "sportmonks";
-const DEFAULT_PROVIDER_NAME = "Sportmonks";
-const DEFAULT_PROVIDER_BASE_URL = "https://api.sportmonks.com";
+const DEFAULT_PROVIDER_ID = "api-football";
+const DEFAULT_PROVIDER_NAME = "API-Football";
+const DEFAULT_PROVIDER_BASE_URL = "https://v3.football.api-sports.io";
 const DEFAULT_PROVIDER_STATUS = "evaluation";
 
 export function parseDiscoverMappingsArgs(argv) {
@@ -74,10 +75,11 @@ export async function runDiscoverMappings({ argv, cwd = process.cwd() }) {
   const basePath = normalizeCwd(cwd);
   const local = await readJson(path.resolve(basePath, args.localFile));
   const providerPayload = await readJson(path.resolve(basePath, args.providerFile));
+  const providerFixtures = normalizeProviderFixturePayload(args.providerId, providerPayload);
 
   return discoverProviderMappings({
     local,
-    providerFixtures: providerPayload.data ?? providerPayload.fixtures ?? [],
+    providerFixtures,
     provider: {
       id: args.providerId,
       name: args.providerName,
