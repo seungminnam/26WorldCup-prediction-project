@@ -86,6 +86,24 @@ Never record tokens, keys, project secrets, or raw credentialed output.
 - Remaining real-data work: the ingestion branch must fetch/review/import ESPN mappings, apply the live sync only after validation, and confirm the source badge changes from `Demo seed data` to `Live database`
 - Integration: update this branch from the latest `feat/api-football-provider-transition`, resolve only genuine shared-file changes, rerun the complete verification set, then merge through the selected PR strategy
 
+## Responsive Probability Ribbon Checkpoint - 2026-06-18
+
+- Branch: `feat/match-prediction-baseline`
+- Presentation-model commit: `3fae01c feat: add probability ribbon presentation model`
+- Responsive UI commit: `dfabc9a feat: refine fixture probability ribbon`
+- Changed: `apps/web/lib/prediction-presentation.js`, its focused tests, the match-centre prediction panel, and responsive ribbon styles
+- Contract: the legend uses the two team names plus `Draw`; the text-free bar preserves the exact model proportions and does not impose a minimum segment width
+- Focused edge case: the 91% / 8% / 1% fixture keeps a true 1% final segment and all three widths total 100%
+- Root tests: 83 passed, 0 failed
+- Worker tests: 69 passed, 0 failed
+- Other checks: ESPN offline dry run, syntax check, web production build, sequential web typecheck, secret scan, and `git diff --check` passed
+- Build note: do not run Next.js build and web typecheck concurrently in the same worktree. Both access generated `.next/types`; one parallel verification produced transient missing files named `cache-life.d 2.ts` and `routes.d 2.ts`. A clean `build` followed by `typecheck` passed without source changes.
+- Browser desktop: the 2026-06-19 seed fixtures rendered four legends and four proportional ribbons; the first fixture displayed `Mexico 42%`, `Draw 27%`, and `Korea Republic 31%`; no generic `Home` label, duplicate win caption, console error, or framework overlay was present
+- Browser narrow viewport: verified at 390x844; the first fixture kept all three labels readable, the raw ribbon widths remained 42.4311% / 26.7585% / 30.8104%, and body/document scroll width matched client width
+- Data source during verification: `Demo seed data`; this prediction worktree still has no web Supabase environment configuration
+- Remote API or Supabase writes: none
+- Exact next action: keep this branch and worktree isolated while the ingestion branch finishes reviewed ESPN mapping/sync and real-data UI verification; integrate only after that branch is stable
+
 ## ESPN Real-Data Critical Path + Plan Completion - 2026-06-18
 
 - Branch: `feat/api-football-provider-transition`
