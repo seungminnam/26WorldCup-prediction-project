@@ -324,6 +324,69 @@ p {
   padding: 12px;
 }
 
+.data-source {
+  display: inline-block;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.data-source.supabase {
+  background: #e9fbf7;
+  color: var(--accent);
+}
+
+.data-source.seed {
+  background: #fff5e8;
+  color: #8a5314;
+}
+
+.fixture-prediction {
+  grid-column: 2 / -1;
+  display: grid;
+  gap: 7px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.prediction-heading,
+.outcome-probabilities,
+.likely-scorelines {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.prediction-heading span,
+.fixture-prediction small {
+  color: var(--muted);
+}
+
+.outcome-probabilities span {
+  flex: 1;
+  border-radius: 8px;
+  background: #f4f7f7;
+  padding: 7px;
+  text-align: center;
+}
+
+.likely-scorelines {
+  justify-content: flex-start;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.likely-scorelines span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 7px;
+}
+
 .match-meta {
   display: grid;
   gap: 3px;
@@ -789,6 +852,15 @@ tbody tr.selected {
     padding: 14px;
   }
 
+  .section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filter-pills {
+    max-width: 100%;
+  }
+
   .hero-stats,
   .favorites,
   .forecast-controls {
@@ -801,6 +873,10 @@ tbody tr.selected {
 
   .fixture-card {
     grid-template-columns: 1fr;
+  }
+
+  .fixture-prediction {
+    grid-column: 1;
   }
 
   .scorers {
