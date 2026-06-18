@@ -28,7 +28,8 @@
 - Baseline before edits: 90 tests passed.
 - TDD RED: focused test failed with `ERR_MODULE_NOT_FOUND` before the helper existed.
 - Focused GREEN: 4 timezone tests passed.
-- Full suite after implementation: 94 passed, 0 failed.
+- Full canonical suite after implementation: 94 passed, 0 failed.
+- Post-commit `npm test`: 103 passed, 0 failed because three untracked byte-identical `* 2.js` test copies were also discovered, adding 9 duplicate executions. This is workspace noise, not additional coverage.
 - Web typecheck: passed.
 - Next.js production build: passed with the existing multi-lockfile root warning.
 - Secret scan and `git diff --check`: passed.
