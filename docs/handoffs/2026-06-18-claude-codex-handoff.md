@@ -69,6 +69,23 @@ At every Claude/Codex switch, update this document with:
 
 Never record tokens, keys, project secrets, or raw credentialed output.
 
+## Prediction Baseline Workstream - 2026-06-18
+
+- Branch: `feat/match-prediction-baseline`
+- Worktree: `.worktrees/match-prediction-baseline`
+- Base: `a470d04 docs: plan match prediction baseline`
+- Engine commit: `69330d3 feat: add match outcome probability baseline`
+- UI commit: `cd88414 feat: show fixture prediction probabilities`
+- Changed: tournament-engine prediction API, focused predictor tests, fixture prediction presentation, responsive styles
+- Root tests: 81 passed, 0 failed
+- Worker tests: 69 passed, 0 failed
+- Other checks: ESPN offline dry run, syntax check, web typecheck, production build, secret scan, and `git diff --check` passed
+- Browser desktop: seed source badge rendered; four upcoming fixtures rendered W/D/L, likely score, and top-three scorelines; completed fixtures rendered no prediction; no console errors or Next.js error overlay
+- Browser narrow viewport: verified at 390x844; no horizontal body overflow; prediction panels remained visible; section heading and date filter stacked correctly
+- Remote API or Supabase writes: none
+- Remaining real-data work: the ingestion branch must fetch/review/import ESPN mappings, apply the live sync only after validation, and confirm the source badge changes from `Demo seed data` to `Live database`
+- Integration: update this branch from the latest `feat/api-football-provider-transition`, resolve only genuine shared-file changes, rerun the complete verification set, then merge through the selected PR strategy
+
 ## ESPN Real-Data Critical Path + Plan Completion - 2026-06-18
 
 - Branch: `feat/api-football-provider-transition`
