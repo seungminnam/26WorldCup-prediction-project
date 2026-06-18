@@ -18,6 +18,7 @@
     "ingestion:mapping-dry-run": "npm run mapping-dry-run --workspace apps/ingestion-worker",
     "ingestion:import-mappings": "npm run import-mappings --workspace apps/ingestion-worker --",
     "ingestion:discover-mappings": "npm run discover-mappings --workspace apps/ingestion-worker --",
+    "ingestion:fetch-api-football-fixtures": "npm run fetch-api-football-fixtures --workspace apps/ingestion-worker --",
     "ingestion:fetch-sportmonks-fixtures": "npm run fetch-sportmonks-fixtures --workspace apps/ingestion-worker --",
     "secret:scan": "bash scripts/secret-scan.sh",
     "test": "node --test",
