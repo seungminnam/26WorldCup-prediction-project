@@ -104,6 +104,17 @@ Never record tokens, keys, project secrets, or raw credentialed output.
 - Remote API or Supabase writes: none
 - Exact next action: keep this branch and worktree isolated while the ingestion branch finishes reviewed ESPN mapping/sync and real-data UI verification; integrate only after that branch is stable
 
+## Pre-Match Prediction Visibility - 2026-06-18
+
+- Decision: show the rating/Poisson forecast only while a fixture is `Upcoming`; do not fade it near kickoff and do not show it for `Live`, `FT`, `Result pending`, or `Postponed`
+- Live behavior: show observed scores when available, without presenting them as live win probabilities
+- Completed behavior: show final or pending-result scores and events only; stored pre-match probabilities remain available for later model evaluation but are not repeated on the fixture card
+- Added: pure fixture presentation helpers and focused status-contract tests
+- Browser completed state: two `FT` cards showed scores `2-0` and `2-1` with zero probability ribbons
+- Browser upcoming state: four cards showed four prediction ribbons and placeholder score cells; no console errors or framework overlay
+- In-play probability: deferred until a separately calibrated model can incorporate score, elapsed time, and match events
+- Remote API or Supabase writes: none
+
 ## ESPN Real-Data Critical Path + Plan Completion - 2026-06-18
 
 - Branch: `feat/api-football-provider-transition`

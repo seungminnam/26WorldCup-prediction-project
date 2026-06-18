@@ -10,10 +10,11 @@ import {
   teams as teamSeed
 } from "@wc/tournament-engine";
 import type { AppFixture, AppTeam, TournamentData } from "@/lib/tournament-data";
+import { displayFixtureScore, shouldShowPreMatchPrediction } from "@/lib/fixture-presentation";
 import { buildOutcomePresentation } from "@/lib/prediction-presentation";
 
 type TabName = "fixtures" | "standings" | "bracket" | "forecast";
-type MatchStatus = "FT" | "Upcoming" | "Result pending";
+type MatchStatus = "FT" | "Upcoming" | "Live" | "Result pending" | "Postponed";
 type StandingRow = {
   teamId: string;
   group: string;
@@ -477,7 +478,9 @@ function FixtureCard({ match, teamsById }: { match: AppFixture; teamsById: Recor
   const homeTeam = teamsById[match.homeTeamId];
   const awayTeam = teamsById[match.awayTeamId];
   const prediction =
-    match.status === "Upcoming" && Number.isFinite(homeTeam?.rating) && Number.isFinite(awayTeam?.rating)
+    shouldShowPreMatchPrediction(match.status) &&
+    Number.isFinite(homeTeam?.rating) &&
+    Number.isFinite(awayTeam?.rating)
       ? predictMatch(homeTeam, awayTeam)
       : undefined;
   const outcomes = prediction
@@ -496,8 +499,16 @@ function FixtureCard({ match, teamsById }: { match: AppFixture; teamsById: Recor
         <span>{match.venue}</span>
       </div>
       <div className="teams-score">
-        <ScoreRow teamId={match.homeTeamId} score={scoreCell(match, "home")} teamsById={teamsById} />
-        <ScoreRow teamId={match.awayTeamId} score={scoreCell(match, "away")} teamsById={teamsById} />
+        <ScoreRow
+          teamId={match.homeTeamId}
+          score={displayFixtureScore(match.status, match.homeGoals)}
+          teamsById={teamsById}
+        />
+        <ScoreRow
+          teamId={match.awayTeamId}
+          score={displayFixtureScore(match.status, match.awayGoals)}
+          teamsById={teamsById}
+        />
       </div>
       <div className="scorers">{scorerText(match)}</div>
       {prediction && (
@@ -673,11 +684,6 @@ function scorerText(match: AppFixture) {
   }
 
   return match.scorers.map((scorer) => `${scorer.player} ${scorer.minute}'`).join(" · ");
-}
-
-function scoreCell(match: AppFixture, side: "home" | "away") {
-  const goals = side === "home" ? match.homeGoals : match.awayGoals;
-  return match.status === "FT" && typeof goals === "number" ? goals : "-";
 }
 
 function formatPercent(value: number) {
