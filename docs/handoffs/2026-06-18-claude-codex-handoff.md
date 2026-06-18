@@ -69,6 +69,52 @@ At every Claude/Codex switch, update this document with:
 
 Never record tokens, keys, project secrets, or raw credentialed output.
 
+## Prediction Baseline Workstream - 2026-06-18
+
+- Branch: `feat/match-prediction-baseline`
+- Worktree: `.worktrees/match-prediction-baseline`
+- Base: `a470d04 docs: plan match prediction baseline`
+- Engine commit: `69330d3 feat: add match outcome probability baseline`
+- UI commit: `cd88414 feat: show fixture prediction probabilities`
+- Changed: tournament-engine prediction API, focused predictor tests, fixture prediction presentation, responsive styles
+- Root tests: 81 passed, 0 failed
+- Worker tests: 69 passed, 0 failed
+- Other checks: ESPN offline dry run, syntax check, web typecheck, production build, secret scan, and `git diff --check` passed
+- Browser desktop: seed source badge rendered; four upcoming fixtures rendered W/D/L, likely score, and top-three scorelines; completed fixtures rendered no prediction; no console errors or Next.js error overlay
+- Browser narrow viewport: verified at 390x844; no horizontal body overflow; prediction panels remained visible; section heading and date filter stacked correctly
+- Remote API or Supabase writes: none
+- Remaining real-data work: the ingestion branch must fetch/review/import ESPN mappings, apply the live sync only after validation, and confirm the source badge changes from `Demo seed data` to `Live database`
+- Integration: update this branch from the latest `feat/api-football-provider-transition`, resolve only genuine shared-file changes, rerun the complete verification set, then merge through the selected PR strategy
+
+## Responsive Probability Ribbon Checkpoint - 2026-06-18
+
+- Branch: `feat/match-prediction-baseline`
+- Presentation-model commit: `3fae01c feat: add probability ribbon presentation model`
+- Responsive UI commit: `dfabc9a feat: refine fixture probability ribbon`
+- Changed: `apps/web/lib/prediction-presentation.js`, its focused tests, the match-centre prediction panel, and responsive ribbon styles
+- Contract: the legend uses the two team names plus `Draw`; the text-free bar preserves the exact model proportions and does not impose a minimum segment width
+- Focused edge case: the 91% / 8% / 1% fixture keeps a true 1% final segment and all three widths total 100%
+- Root tests: 83 passed, 0 failed
+- Worker tests: 69 passed, 0 failed
+- Other checks: ESPN offline dry run, syntax check, web production build, sequential web typecheck, secret scan, and `git diff --check` passed
+- Build note: do not run Next.js build and web typecheck concurrently in the same worktree. Both access generated `.next/types`; one parallel verification produced transient missing files named `cache-life.d 2.ts` and `routes.d 2.ts`. A clean `build` followed by `typecheck` passed without source changes.
+- Browser desktop: the 2026-06-19 seed fixtures rendered four legends and four proportional ribbons; the first fixture displayed `Mexico 42%`, `Draw 27%`, and `Korea Republic 31%`; no generic `Home` label, duplicate win caption, console error, or framework overlay was present
+- Browser narrow viewport: verified at 390x844; the first fixture kept all three labels readable, the raw ribbon widths remained 42.4311% / 26.7585% / 30.8104%, and body/document scroll width matched client width
+- Data source during verification: `Demo seed data`; this prediction worktree still has no web Supabase environment configuration
+- Remote API or Supabase writes: none
+- Exact next action: keep this branch and worktree isolated while the ingestion branch finishes reviewed ESPN mapping/sync and real-data UI verification; integrate only after that branch is stable
+
+## Pre-Match Prediction Visibility - 2026-06-18
+
+- Decision: show the rating/Poisson forecast only while a fixture is `Upcoming`; do not fade it near kickoff and do not show it for `Live`, `FT`, `Result pending`, or `Postponed`
+- Live behavior: show observed scores when available, without presenting them as live win probabilities
+- Completed behavior: show final or pending-result scores and events only; stored pre-match probabilities remain available for later model evaluation but are not repeated on the fixture card
+- Added: pure fixture presentation helpers and focused status-contract tests
+- Browser completed state: two `FT` cards showed scores `2-0` and `2-1` with zero probability ribbons
+- Browser upcoming state: four cards showed four prediction ribbons and placeholder score cells; no console errors or framework overlay
+- In-play probability: deferred until a separately calibrated model can incorporate score, elapsed time, and match events
+- Remote API or Supabase writes: none
+
 ## ESPN Real-Data Critical Path + Plan Completion - 2026-06-18
 
 - Branch: `feat/api-football-provider-transition`
@@ -104,3 +150,14 @@ Never record tokens, keys, project secrets, or raw credentialed output.
 - This worktree's dev server was run on port 3100 (3000 was occupied by Codex's still-running `match-prediction-baseline` dev server, left untouched).
 
 **Exact next action:** integrate the `feat/match-prediction-baseline` branch on top of this one (update it from this branch's tip, resolve any genuinely shared file changes — expected to be none, since Codex's files and this session's files don't overlap — rerun full verification, then merge through whichever PR strategy is chosen). After that, plan and execute the kickoff/home-away correction to `src/data/fixtures.js` itself, and schedule the live shadow test.
+
+## Integration: ESPN Branch Merged, Prediction Branch Rebased - 2026-06-18
+
+- `feat/api-football-provider-transition` was renamed to `feat/espn-live-data-provider` (never pushed before, so a plain local rename was safe), pushed, opened as PR #5, CI passed, squash-merged to `main` as `b41f270`. `npx supabase db advisors --linked` confirmed no issues after the early-applied migrations (required by policy after an urgent migration).
+- An older, fully superseded PR (#4, "feat: add Sportmonks fixture fetch") was closed without merging — its one commit and everything after it were already included in #5's history.
+- `feat/match-prediction-baseline` was rebased with `git rebase --onto origin/main a470d04 feat/match-prediction-baseline` (not a plain `rebase origin/main`, which would have replayed the entire superseded Sportmonks/API-Football/ESPN history and conflicted against the squashed equivalent already on `main`). This kept exactly Codex's 10 unique commits and replayed them cleanly on top of `b41f270`.
+- Conflict resolution needed in exactly one file across all 10 commits: this handoff doc, where both branches had independently appended sections after "Update Protocol." Resolved by keeping all sections in chronological order (Prediction Baseline Workstream → Responsive Probability Ribbon Checkpoint → Pre-Match Prediction Visibility → ESPN Real-Data Critical Path). No application code conflicted, confirming the file-ownership split held.
+- Post-rebase verification: root tests 90/90, worker tests 74/74, typecheck clean, production build clean, secret scan clean, `git diff --check` clean.
+- Browser-verified the actual integration (not just unit tests): started the web app against the live Supabase project with real ESPN data, clicked through to the "Fri, Jun 19" fixture day, and confirmed Codex's prediction ribbons render correctly on top of real synced data — e.g. Mexico 42% / Draw 27% / Korea Republic 31%, Likely 1-1, alongside three other upcoming fixtures with full ribbons and no console errors. The default-selected day (June 11/12, earliest matches) showed no ribbons, which is correct per the Pre-Match Prediction Visibility decision (no predictions on `FT` fixtures) — initially looked like a bug until traced to the day-filter default, not an integration defect.
+- Remote/Supabase writes: none in this integration step (no new migrations, no new mapping/sync writes — read-only verification against already-applied state).
+- Not yet done: this rebased branch has not been pushed or opened as a PR.

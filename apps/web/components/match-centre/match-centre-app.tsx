@@ -4,14 +4,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildGroupTable,
   fixtures as fixtureSeed,
+  predictMatch,
   rankGroup,
   runMonteCarlo,
   teams as teamSeed
 } from "@wc/tournament-engine";
 import type { AppFixture, AppTeam, TournamentData } from "@/lib/tournament-data";
+import { displayFixtureScore, shouldShowPreMatchPrediction } from "@/lib/fixture-presentation";
+import { buildOutcomePresentation } from "@/lib/prediction-presentation";
 
 type TabName = "fixtures" | "standings" | "bracket" | "forecast";
-type MatchStatus = "FT" | "Upcoming" | "Result pending";
+type MatchStatus = "FT" | "Upcoming" | "Live" | "Result pending" | "Postponed";
 type StandingRow = {
   teamId: string;
   group: string;
@@ -117,6 +120,7 @@ const venues = ["Los Angeles", "Dallas", "Atlanta", "Miami", "Vancouver", "Bosto
 export function MatchCentreApp({ initialData }: { initialData?: TournamentData }) {
   const teams = initialData?.teams?.length ? initialData.teams : fallbackTeams;
   const fixtures = initialData?.fixtures?.length ? initialData.fixtures : fallbackFixtures;
+  const dataSource = initialData?.source ?? "seed";
   const teamsById = useMemo(() => Object.fromEntries(teams.map((team) => [team.id, team])), [teams]) as Record<
     string,
     AppTeam
@@ -228,6 +232,9 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                 <div>
                   <p className="eyebrow">Match centre</p>
                   <h2>Scores & Fixtures</h2>
+                  <span className={`data-source ${dataSource}`}>
+                    {dataSource === "supabase" ? "Live database" : "Demo seed data"}
+                  </span>
                 </div>
                 <div className="filter-pills" aria-label="Match day filter">
                   {dateOptions.map((day) => {
@@ -468,6 +475,22 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
 }
 
 function FixtureCard({ match, teamsById }: { match: AppFixture; teamsById: Record<string, AppTeam> }) {
+  const homeTeam = teamsById[match.homeTeamId];
+  const awayTeam = teamsById[match.awayTeamId];
+  const prediction =
+    shouldShowPreMatchPrediction(match.status) &&
+    Number.isFinite(homeTeam?.rating) &&
+    Number.isFinite(awayTeam?.rating)
+      ? predictMatch(homeTeam, awayTeam)
+      : undefined;
+  const outcomes = prediction
+    ? buildOutcomePresentation({
+        homeName: homeTeam.name,
+        awayName: awayTeam.name,
+        probabilities: prediction.probabilities
+      })
+    : [];
+
   return (
     <article className="fixture-card">
       <div className="match-meta">
@@ -476,10 +499,56 @@ function FixtureCard({ match, teamsById }: { match: AppFixture; teamsById: Recor
         <span>{match.venue}</span>
       </div>
       <div className="teams-score">
-        <ScoreRow teamId={match.homeTeamId} score={scoreCell(match, "home")} teamsById={teamsById} />
-        <ScoreRow teamId={match.awayTeamId} score={scoreCell(match, "away")} teamsById={teamsById} />
+        <ScoreRow
+          teamId={match.homeTeamId}
+          score={displayFixtureScore(match.status, match.homeGoals)}
+          teamsById={teamsById}
+        />
+        <ScoreRow
+          teamId={match.awayTeamId}
+          score={displayFixtureScore(match.status, match.awayGoals)}
+          teamsById={teamsById}
+        />
       </div>
       <div className="scorers">{scorerText(match)}</div>
+      {prediction && (
+        <div className="fixture-prediction">
+          <div className="prediction-heading">
+            <span>{prediction.model.label}</span>
+            <strong>
+              Likely {prediction.mostLikelyScore.homeGoals}-{prediction.mostLikelyScore.awayGoals}
+            </strong>
+          </div>
+          <div className="probability-legend" aria-label="Match outcome probabilities">
+            {outcomes.map((outcome) => (
+              <div key={outcome.key} className={`probability-legend-item ${outcome.key}`}>
+                <span className="probability-name">
+                  <i className={`probability-dot ${outcome.key}`} aria-hidden="true" />
+                  <span title={outcome.label}>{outcome.label}</span>
+                </span>
+                <strong>{outcome.percentLabel}</strong>
+              </div>
+            ))}
+          </div>
+          <div className="probability-ribbon" aria-hidden="true">
+            {outcomes.map((outcome) => (
+              <span
+                key={outcome.key}
+                className={`probability-segment ${outcome.key}`}
+                style={{ width: outcome.width }}
+              />
+            ))}
+          </div>
+          <div className="likely-scorelines" aria-label="Most likely scorelines">
+            {prediction.scorelines.map((scoreline) => (
+              <span key={`${scoreline.homeGoals}-${scoreline.awayGoals}`}>
+                {scoreline.homeGoals}-{scoreline.awayGoals} {Math.round(scoreline.probability * 100)}%
+              </span>
+            ))}
+          </div>
+          <small>Statistical baseline, not a trained ML model</small>
+        </div>
+      )}
     </article>
   );
 }
@@ -615,11 +684,6 @@ function scorerText(match: AppFixture) {
   }
 
   return match.scorers.map((scorer) => `${scorer.player} ${scorer.minute}'`).join(" · ");
-}
-
-function scoreCell(match: AppFixture, side: "home" | "away") {
-  const goals = side === "home" ? match.homeGoals : match.awayGoals;
-  return match.status === "FT" && typeof goals === "number" ? goals : "-";
 }
 
 function formatPercent(value: number) {

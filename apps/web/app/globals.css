@@ -324,6 +324,146 @@ p {
   padding: 12px;
 }
 
+.data-source {
+  display: inline-block;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.data-source.supabase {
+  background: #e9fbf7;
+  color: var(--accent);
+}
+
+.data-source.seed {
+  background: #fff5e8;
+  color: #8a5314;
+}
+
+.fixture-prediction {
+  grid-column: 2 / -1;
+  display: grid;
+  gap: 7px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.prediction-heading,
+.likely-scorelines {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.prediction-heading span,
+.fixture-prediction small {
+  color: var(--muted);
+}
+
+.probability-legend {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(72px, 0.55fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.probability-legend-item {
+  min-width: 0;
+}
+
+.probability-legend-item.draw {
+  text-align: center;
+}
+
+.probability-legend-item.away {
+  text-align: right;
+}
+
+.probability-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.probability-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.probability-legend-item.draw .probability-name {
+  justify-content: center;
+}
+
+.probability-legend-item.away .probability-name {
+  justify-content: flex-end;
+}
+
+.probability-legend-item strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.probability-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+}
+
+.probability-ribbon {
+  display: flex;
+  width: 100%;
+  height: 18px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf2f1;
+  box-shadow: inset 0 1px 3px rgba(16, 44, 49, 0.16);
+}
+
+.probability-segment {
+  min-width: 0;
+}
+
+.probability-dot.home,
+.probability-segment.home {
+  background: linear-gradient(90deg, #147a65, #37b394);
+}
+
+.probability-dot.draw,
+.probability-segment.draw {
+  background: linear-gradient(90deg, #a48d50, #c9ae66);
+}
+
+.probability-dot.away,
+.probability-segment.away {
+  background: linear-gradient(90deg, #355d71, #608a9d);
+}
+
+.likely-scorelines {
+  justify-content: flex-start;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.likely-scorelines span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 7px;
+}
+
 .match-meta {
   display: grid;
   gap: 3px;
@@ -789,6 +929,15 @@ tbody tr.selected {
     padding: 14px;
   }
 
+  .section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filter-pills {
+    max-width: 100%;
+  }
+
   .hero-stats,
   .favorites,
   .forecast-controls {
@@ -801,6 +950,23 @@ tbody tr.selected {
 
   .fixture-card {
     grid-template-columns: 1fr;
+  }
+
+  .fixture-prediction {
+    grid-column: 1;
+  }
+
+  .probability-legend {
+    grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .probability-name {
+    font-size: 0.66rem;
+  }
+
+  .probability-legend-item strong {
+    font-size: 1.12rem;
   }
 
   .scorers {
