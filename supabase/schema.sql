@@ -487,7 +487,7 @@ create index fixtures_home_team_idx on public.fixtures (home_team_id);
 create index fixtures_away_team_idx on public.fixtures (away_team_id);
 create index match_events_fixture_idx on public.match_events (fixture_id);
 create index match_events_team_idx on public.match_events (team_id);
-create unique index match_events_source_event_dedupe_idx on public.match_events (source, source_event_id) where source_event_id is not null;
+create unique index match_events_source_event_dedupe_idx on public.match_events (source, source_event_id);
 create index forecast_runs_mode_created_idx on public.forecast_runs (mode, created_at desc) where visibility = 'public';
 create index forecast_probabilities_team_idx on public.forecast_probabilities (team_id);
 create index group_projection_group_idx on public.group_projection_snapshots (forecast_run_id, group_code);
@@ -605,6 +605,7 @@ where id = 'api-football';
 
 grant usage on schema app_private to service_role;
 grant insert on table app_private.ingestion_runs to service_role;
+grant select on app_private.ingestion_runs to service_role;
 
 create or replace function public.record_ingestion_run(
   p_source text,
