@@ -70,6 +70,17 @@ npm run ingestion:mapping-dry-run
 
 This command uses sanitized sample data and performs no network calls or database writes.
 
+To fetch a private Sportmonks fixture payload into the gitignored local data directory:
+
+```bash
+npm run ingestion:fetch-sportmonks-fixtures -- \
+  --date-from 2026-06-11 \
+  --date-to 2026-06-11 \
+  --output .local-data/sportmonks/fixtures-2026-06-11.json
+```
+
+The command loads `SPORTMONKS_API_TOKEN` from `apps/ingestion-worker/.env.local`, never prints the token, and writes raw provider data only under `.local-data/`. Start with a one-day range to confirm plan coverage before requesting a larger tournament window.
+
 To validate a real mapping file without writing to Supabase:
 
 ```bash

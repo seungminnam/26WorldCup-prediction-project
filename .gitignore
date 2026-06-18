@@ -16,6 +16,7 @@ apps/**/.next/
 dist/
 coverage/
 *.tsbuildinfo
+.local-data/
 
 # Local tool state
 .vercel/
