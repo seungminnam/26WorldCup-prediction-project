@@ -57,7 +57,7 @@ The ingestion worker must be deployed separately from the public Next.js client.
 ```text
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
-SPORTMONKS_API_TOKEN=
+API_FOOTBALL_API_KEY=
 ```
 
 Do not prefix these values with `NEXT_PUBLIC_`. Do not commit them to `.env`, `.env.example`, Vercel project settings for the browser app, or any checked-in config file.
@@ -70,16 +70,16 @@ npm run ingestion:mapping-dry-run
 
 This command uses sanitized sample data and performs no network calls or database writes.
 
-To fetch a private Sportmonks fixture payload into the gitignored local data directory:
+To fetch a private API-Football fixture payload into the gitignored local data directory:
 
 ```bash
-npm run ingestion:fetch-sportmonks-fixtures -- \
+npm run ingestion:fetch-api-football-fixtures -- \
   --date-from 2026-06-11 \
   --date-to 2026-06-11 \
-  --output .local-data/sportmonks/fixtures-2026-06-11.json
+  --output .local-data/api-football/fixtures-2026-06-11.json
 ```
 
-The command loads `SPORTMONKS_API_TOKEN` from `apps/ingestion-worker/.env.local`, never prints the token, and writes raw provider data only under `.local-data/`. Start with a one-day range to confirm plan coverage before requesting a larger tournament window.
+The command loads `API_FOOTBALL_API_KEY` from `apps/ingestion-worker/.env.local`, never prints the key, and writes raw provider data only under `.local-data/`. Start with a one-day range to confirm plan coverage before requesting a larger tournament window.
 
 To validate a real mapping file without writing to Supabase:
 
@@ -92,14 +92,49 @@ To generate a mapping file from a local tournament snapshot and a sanitized prov
 ```bash
 npm run ingestion:discover-mappings -- \
   --local-file path/to/local-tournament.json \
-  --provider-file path/to/sportmonks-fixtures.json
+  --provider-file .local-data/api-football/fixtures-2026-06-11.json
 ```
+
+API-Football is the default discovery provider. Sportmonks remains available only as an explicit fallback by passing its provider ID, name, and base URL.
 
 To apply a reviewed mapping file, run from a private worker environment with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` configured as secrets:
 
 ```bash
 npm run ingestion:import-mappings -- --file path/to/provider-mappings.json --apply
 ```
+
+After reviewed API-Football mappings exist in Supabase, run one live request in dry-run mode:
+
+```bash
+npm run ingestion:sync-api-football-live
+```
+
+The command fetches the competition-scoped live feed, loads mappings, and prints canonical write plans without changing fixture or event rows. Only a controlled private worker may enable writes:
+
+```bash
+npm run ingestion:sync-api-football-live -- --apply
+```
+
+The private host scheduler owns the interval. On the free plan, invoke the command every 8-10 minutes only from 15 minutes before kickoff until the fixture is final. Keep at least 10 of the 100 daily calls in reserve. When the CLI reports `quotaState: "reserve"`, stop optional polling and prioritize final-result reconciliation.
+
+## API-Football Validation Gate
+
+Current status: **Not run: `API_FOOTBALL_API_KEY` required.**
+
+Before changing the provider status from `evaluation` to `active`, record and review:
+
+- Fixture count and World Cup 2026 competition/season identity.
+- Home/away participant and kickoff agreement with canonical fixtures.
+- Venue and round coverage.
+- Scheduled, live, half-time, extra-time, penalty, and final status transitions.
+- Goal scorer, assist, own-goal, and penalty-event completeness.
+- Final-result correction behavior.
+- Maximum observed delay and total daily request use.
+- Display and redistribution rights for the intended public data.
+
+Do not weaken mapping rules to force a match. Fix canonical data or provider aliases explicitly. Raw validation payloads remain under `.local-data/` and must never be committed.
+
+The provider-selection migration is reviewed in the feature PR but, following the repository migration policy, is applied to the linked project only after merge from a clean `main`. Local Supabase lint was not run while the local stack was unavailable; CI or the clean-main release step must perform database verification before applying the migration.
 
 ## GitHub
 

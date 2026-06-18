@@ -8,7 +8,7 @@ The next product step is to replace manual/static match data with a near-live sp
 
 ## Decision
 
-Use a paid football data provider as the primary source, with Sportmonks as the recommended first provider. Sportmonks exposes World Cup 2026-oriented documentation, fixtures endpoints, livescore endpoints, event includes, and recent-update livescore retrieval. That maps cleanly to the app's current Supabase schema.
+Use API-Football as the World Cup 2026 primary provider candidate. Its free plan exposes fixtures, livescores, events, lineups, and standings for the current season, which is enough to validate the portfolio MVP before paying for a higher polling allowance. Keep Sportmonks as a disabled fallback adapter during validation rather than extending its integration.
 
 Use a hybrid update model:
 
@@ -104,8 +104,9 @@ Use smart polling instead of polling the entire tournament constantly.
 
 For fixtures starting within the next 30 minutes or currently live:
 
-- Poll active livescore endpoint every 10-15 seconds if provider rate limits allow.
-- Poll less frequently, such as every 30-60 seconds, if no live state changes are detected.
+- On the API-Football free plan, poll the competition-scoped live endpoint every 8-10 minutes during known match windows.
+- Keep at least 10 of the 100 daily calls in reserve for retries and final-result reconciliation.
+- On a paid plan, reduce the interval to approximately one minute if product needs justify it.
 - Stop high-frequency polling after the provider marks the fixture final.
 
 ### Post-Match Confirmation
@@ -163,7 +164,7 @@ For production verification:
 - Map a small set of fixtures manually and verify updates.
 - Enable writes for fixtures first, then match events, then forecast triggers.
 
-## Open Implementation Choice
+## Runtime Choice
 
 The only unresolved runtime choice is where the high-frequency worker should live:
 
@@ -171,12 +172,12 @@ The only unresolved runtime choice is where the high-frequency worker should liv
 - Supabase Scheduled Edge Functions for simpler low-frequency reconciliation.
 - Vercel Cron for web-app-adjacent scheduled jobs.
 
-Recommendation: start with a private Node worker plus Supabase scheduled reconciliation. This gives enough control for active match polling while keeping the database and app stack unchanged.
+Recommendation: start with a private Node worker plus Supabase scheduled reconciliation. The worker host invokes the one-shot API-Football sync command only during match windows, while the database and app stack remain unchanged.
 
 ## References
 
-- Sportmonks Livescores: https://docs.sportmonks.com/v3/endpoints-and-entities/endpoints/livescores
-- Sportmonks Fixtures: https://docs.sportmonks.com/v3/endpoints-and-entities/endpoints/fixtures
-- Sportmonks Rate Limits: https://docs.sportmonks.com/v3/api/rate-limit
+- API-Football pricing: https://www.api-football.com/pricing
+- API-Football World Cup 2026 guide: https://www.api-football.com/news/post/fifa-world-cup-2026-guide-to-using-data-with-api-sports
+- API-Football documentation: https://www.api-football.com/documentation
 - Supabase Scheduled Edge Functions: https://supabase.com/docs/guides/functions/schedule-functions
 - Supabase Realtime Postgres Changes: https://supabase.com/docs/guides/realtime/postgres-changes

@@ -55,11 +55,28 @@ See [docs/git-workflow.md](docs/git-workflow.md) for the branch strategy, CI req
 - The seed dataset is manually maintained from public schedule references and must be replaced by Supabase-backed verified data before production.
 - The group ranking engine uses MVP tie-breakers: points, goal difference, goals for, then rating.
 - The Round of 32 assignment is an MVP-safe unique-slot mapping. A FIFA Annex C lookup table should replace it for official compliance.
-- Live score API updates are not included yet. Locked results can be added manually to fixture objects.
+- Production live writes are not enabled until API-Football fixture mapping and shadow validation pass. Locked results remain available for manual snapshots.
+
+## API-Football Ingestion
+
+The private ingestion worker now uses API-Football as the World Cup 2026 primary candidate. Provider credentials stay server-side, fixtures and events are normalized before Supabase writes, and Sportmonks remains a disabled fallback adapter during validation.
+
+The free API-Football plan allows 100 requests per day, so the intended MVP schedule is one competition-scoped poll every 8-10 minutes during known match windows with at least 10 calls reserved for retries and final-result reconciliation. The public app should describe this as near-live rather than real time.
+
+Useful offline checks:
+
+```bash
+npm run ingestion:test
+npm run ingestion:dry-run
+npm run ingestion:mapping-dry-run
+```
+
+Credentialed fetch and sync commands are documented in [docs/deployment.md](docs/deployment.md). Do not use `--apply` until fixture mappings and one scheduled-to-final shadow test have been reviewed.
 
 ## Suggested Next Steps
 
 1. Replace synthetic teams and fixtures with official group data.
 2. Add locked-result editing in the UI for snapshot mode.
 3. Add the official Annex C third-place assignment table.
-4. Add What-if mode for custom result scenarios.
+4. Complete the API-Football fixture and scheduled-to-final shadow validation.
+5. Add What-if mode for custom result scenarios.
