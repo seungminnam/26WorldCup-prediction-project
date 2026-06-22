@@ -1,15 +1,15 @@
-# World Cup 2026 Tournament Lab
+# World Cup 2026 Match Centre
 
-Browser-based MVP for simulating a 48-team World Cup-style tournament.
+A portfolio project that combines a live tournament dashboard with an interactive prediction model.
 
 ## What It Does
 
-- Runs Monte Carlo tournament simulations.
-- Calculates group tables from simulated or locked scores.
-- Selects group winners, runners-up, and the best eight third-place teams.
-- Builds a 32-team knockout bracket.
-- Aggregates probabilities for Round of 32, Round of 16, quarterfinal, semifinal, final, and champion.
-- Lets users click any team for a drill-down view.
+- Displays the canonical 104-match World Cup schedule with local-time kickoff display.
+- Syncs live and final results from ESPN while protecting FIFA-owned fixture metadata.
+- Shows fixtures, results, group standings, knockout slots, and scoring events from Supabase.
+- Adds rating and Poisson-based pre-match predictions directly to fixture cards.
+- Runs Monte Carlo tournament simulations and aggregates advancement and title probabilities.
+- Provides team drill-downs so the model remains explorable rather than a hidden backend feature.
 
 ## Run Static MVP
 
@@ -52,9 +52,11 @@ See [docs/git-workflow.md](docs/git-workflow.md) for the branch strategy, CI req
 
 ## Current MVP Limits
 
-- The seed dataset is manually maintained from public schedule references and must be replaced by Supabase-backed verified data before production.
+- ESPN is treated as an evaluation feed rather than a betting-grade real-time service.
+- The current prediction model is a transparent rating and Poisson baseline, not a trained production model.
 - The group ranking engine uses MVP tie-breakers: points, goal difference, goals for, then rating.
-- The Round of 32 assignment is an MVP-safe unique-slot mapping. A FIFA Annex C lookup table should replace it for official compliance.
+- The forecast is not yet recomputed automatically after every result update.
+- The official FIFA Annex C third-place assignment table is not implemented yet.
 - Production live writes are flowing from ESPN; a shadow test through a full scheduled-to-final match lifecycle and knockout-stage penalty-shootout verification are still pending before flipping the provider from `evaluation` to `active`.
 
 ## ESPN Ingestion
@@ -75,8 +77,8 @@ Credentialed fetch, sync, and reconciliation commands are documented in [docs/de
 
 ## Suggested Next Steps
 
-1. Replace synthetic teams and fixtures with official group data, including correcting the hand-authored kickoff times and home/away assignments now known to disagree with ESPN (see the ESPN Validation Gate in [docs/deployment.md](docs/deployment.md)).
-2. Add locked-result editing in the UI for snapshot mode.
-3. Add the official Annex C third-place assignment table.
-4. Complete the ESPN scheduled-to-final shadow validation and penalty-shootout verification once the knockout stage begins.
-5. Add What-if mode for custom result scenarios.
+1. Recompute snapshot forecasts after result changes and show feed/forecast freshness.
+2. Refine the matchday dashboard with live emphasis, recent results, and model highlights.
+3. Add model evaluation, backtesting, and a documented path beyond the Poisson baseline.
+4. Complete the ESPN scheduled-to-final shadow validation and knockout penalty-shootout verification.
+5. Add the official Annex C third-place assignment table and What-if scenarios.

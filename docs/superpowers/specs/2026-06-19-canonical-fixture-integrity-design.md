@@ -57,4 +57,3 @@ Keep date grouping in `Asia/Seoul`. Show all 104 fixtures. For knockout matches 
 - Result updates cannot contain fixed metadata columns.
 - Drift comparison catches participant, kickoff, and venue differences.
 - Linked Supabase contains 104 fixtures and retains all existing final scores and scoring events.
-

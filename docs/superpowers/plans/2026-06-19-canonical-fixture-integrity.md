@@ -8,6 +8,8 @@
 
 **Tech Stack:** Node.js ESM, Node test runner, Next.js, Supabase/Postgres, ESPN scoreboard JSON.
 
+**Status:** Implemented and verified against ESPN and the linked Supabase project on 22 June 2026.
+
 ---
 
 ### Task 1: Canonical schedule contract
@@ -70,6 +72,5 @@
 - [ ] Add a failing audit test or fixture proving drift is reported.
 - [ ] Implement an audit command comparing canonical, ESPN, and Supabase fixed fields.
 - [ ] Apply the migration to the linked Supabase project.
-- [ ] Verify 104 database fixtures, 24 existing final results, and 75 existing ESPN scoring events are preserved.
+- [ ] Verify 104 database fixtures and preserve the pre-migration baseline of 40 final results and 123 ESPN scoring events.
 - [ ] Run `npm test`, ingestion tests, the integrity audit, secret scan, and production build.
-
