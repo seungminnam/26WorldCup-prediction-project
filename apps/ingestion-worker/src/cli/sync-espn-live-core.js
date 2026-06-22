@@ -1,5 +1,5 @@
-import { normalizeEspnPayload, normalizeEspnTeams } from "../provider/espn.js";
-import { buildLiveScoreUpsertPlan } from "../sync/live-score.js";
+import { canonicalSchedule } from "@wc/tournament-engine";
+import { buildEspnResultPlans } from "../sync/espn-results.js";
 
 export function parseSyncEspnLiveArgs(argv) {
   let apply = false;
@@ -19,30 +19,26 @@ export async function runSyncEspnLive({ argv, client, store, today = new Date() 
   const { apply } = parseSyncEspnLiveArgs(argv);
   const { dateFrom, dateTo } = pollWindow(today);
 
-  const [scoreboardPayload, teamsPayload] = await Promise.all([
-    client.fetchFixturesBetween({ dateFrom, dateTo }),
-    client.fetchTeams()
-  ]);
-
-  const knownTeamIds = new Set(normalizeEspnTeams(teamsPayload).map((team) => team.providerTeamId));
-  const fixtures = normalizeEspnPayload(scoreboardPayload, { knownTeamIds });
+  const scoreboardPayload = await client.fetchFixturesBetween({ dateFrom, dateTo });
   const mappings = await store.loadProviderMappings("espn");
-
-  const plans = [];
-  const skipped = [];
-  for (const fixture of fixtures) {
-    try {
-      plans.push(buildLiveScoreUpsertPlan(fixture, mappings));
-    } catch (error) {
-      skipped.push({ providerFixtureId: fixture.providerFixtureId, reason: error.message });
-    }
-  }
+  const { plans, drift, rejected } = buildEspnResultPlans({
+    events: scoreboardPayload.events ?? [],
+    canonicalFixtures: canonicalSchedule,
+    mappings
+  });
+  const skipped = rejected.map((item) => ({
+    providerFixtureId: item.providerFixtureId,
+    reason: item.reason ?? (item.fields.includes("canonical_fixture")
+      ? `No canonical fixture for espn:${item.providerFixtureId}`
+      : `Canonical participant drift for espn:${item.providerFixtureId}`)
+  }));
 
   const summary = {
     mode: apply ? "apply" : "dry-run",
     fixtureCount: plans.length,
     fixtureIds: plans.map((plan) => plan.fixture.id),
-    skipped
+    skipped,
+    drift
   };
 
   if (!apply) {
@@ -62,7 +58,7 @@ export async function runSyncEspnLive({ argv, client, store, today = new Date() 
       rowsSeen: plans.length,
       rowsChanged,
       errorMessage: null,
-      metadata: { skipped }
+      metadata: { skipped, drift }
     });
   } catch (error) {
     try {
@@ -72,7 +68,7 @@ export async function runSyncEspnLive({ argv, client, store, today = new Date() 
         rowsSeen: plans.length,
         rowsChanged,
         errorMessage: error.message,
-        metadata: { skipped }
+        metadata: { skipped, drift }
       });
     } catch {
       // Preserve the sync failure even if observability storage is unavailable.

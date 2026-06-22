@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { fixtures as fixtureSeed, teams as teamSeed } from "@wc/tournament-engine";
+import { canonicalSchedule, teams as teamSeed } from "@wc/tournament-engine";
+import { mapFixtureRows } from "./tournament-data-core";
 
 export type AppTeam = {
   id: string;
@@ -12,14 +13,20 @@ export type AppTeam = {
 export type AppFixture = {
   id: string;
   matchNumber: number;
-  group: string;
-  homeTeamId: string;
-  awayTeamId: string;
+  stage: string;
+  group: string | null;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeSlot: string;
+  awaySlot: string;
   kickoff: string;
   venue: string;
+  hostCity?: string;
   status: string;
   homeGoals?: number;
   awayGoals?: number;
+  homePenalties?: number;
+  awayPenalties?: number;
   scorers: Array<{ teamId: string; player: string; minute: number }>;
 };
 
@@ -41,13 +48,19 @@ type FixtureCardRow = {
   id: string;
   match_number: number;
   group_code: string | null;
+  stage: string;
   kickoff_at: string;
   status: string;
   home_goals: number | null;
   away_goals: number | null;
+  home_penalties: number | null;
+  away_penalties: number | null;
   venue_name: string | null;
+  venue_city: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
+  home_slot: string | null;
+  away_slot: string | null;
 };
 
 type MatchEventRow = {
@@ -60,10 +73,12 @@ type MatchEventRow = {
 
 const fallbackData: TournamentData = {
   teams: (teamSeed as AppTeam[]).map((team) => ({ ...team })),
-  fixtures: (fixtureSeed as AppFixture[]).map((fixture) => ({
+  fixtures: canonicalSchedule.map((fixture) => ({
     ...fixture,
+    venue: fixture.stadium,
+    hostCity: fixture.venue,
     scorers: [...fixture.scorers]
-  })),
+  })) as AppFixture[],
   source: "seed"
 };
 
@@ -85,7 +100,7 @@ export async function getTournamentData(): Promise<TournamentData> {
   const [teamsResult, fixturesResult, eventsResult] = await Promise.all([
     supabase.from("teams").select("id,name,group_code,rating,flag_emoji").order("group_code").order("id"),
     supabase.from("fixture_cards").select(
-      "id,match_number,group_code,kickoff_at,status,home_goals,away_goals,venue_name,home_team_id,away_team_id"
+      "id,match_number,group_code,stage,kickoff_at,status,home_goals,away_goals,home_penalties,away_penalties,venue_name,venue_city,home_team_id,away_team_id,home_slot,away_slot"
     ).order("kickoff_at"),
     supabase
       .from("match_events")
@@ -126,41 +141,5 @@ function mapTeams(rows: TeamRow[]): AppTeam[] {
 }
 
 function mapFixtures(rows: FixtureCardRow[], eventRows: MatchEventRow[]): AppFixture[] {
-  const eventsByFixture = eventRows.reduce<Record<string, AppFixture["scorers"]>>((accumulator, row) => {
-    if (!row.team_id) {
-      return accumulator;
-    }
-
-    accumulator[row.fixture_id] ??= [];
-    accumulator[row.fixture_id].push({
-      teamId: row.team_id,
-      player: row.player_name,
-      minute: row.minute
-    });
-    return accumulator;
-  }, {});
-
-  return rows
-    .filter((row) => row.group_code && row.home_team_id && row.away_team_id)
-    .map((row) => ({
-      id: row.id,
-      matchNumber: row.match_number,
-      group: row.group_code as string,
-      homeTeamId: row.home_team_id as string,
-      awayTeamId: row.away_team_id as string,
-      kickoff: row.kickoff_at,
-      venue: row.venue_name ?? "TBD",
-      status: mapStatus(row.status),
-      ...(typeof row.home_goals === "number" ? { homeGoals: row.home_goals } : {}),
-      ...(typeof row.away_goals === "number" ? { awayGoals: row.away_goals } : {}),
-      scorers: eventsByFixture[row.id] ?? []
-    }));
-}
-
-function mapStatus(status: string) {
-  if (status === "final") return "FT";
-  if (status === "result_pending") return "Result pending";
-  if (status === "live") return "Live";
-  if (status === "postponed") return "Postponed";
-  return "Upcoming";
+  return mapFixtureRows(rows, eventRows) as AppFixture[];
 }

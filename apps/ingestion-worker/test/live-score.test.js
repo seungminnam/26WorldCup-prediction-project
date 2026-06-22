@@ -24,6 +24,17 @@ test("builds a penalty shootout fixture and assisted goal event plan", () => {
     result_verified_at: null,
     source: "api-football"
   });
+  assert.deepEqual(Object.keys(plan.fixture).sort(), [
+    "away_goals",
+    "away_penalties",
+    "home_goals",
+    "home_penalties",
+    "id",
+    "result_verified_at",
+    "source",
+    "status",
+    "winner_team_id"
+  ]);
   assert.deepEqual(plan.events, [
     {
       fixture_id: "A-2",
@@ -131,3 +142,27 @@ function makeNormalized({
     events
   };
 }
+
+test("uses shootout goals to determine a tied knockout winner", () => {
+  const plan = buildLiveScoreUpsertPlan(
+    {
+      provider: "espn",
+      providerFixtureId: "760510",
+      status: "final",
+      home: { providerTeamId: "1", goals: 1, penalties: 4 },
+      away: { providerTeamId: "2", goals: 1, penalties: 3 },
+      events: []
+    },
+    {
+      fixtureByProviderId: new Map([["760510", "M-98"]]),
+      teamByProviderId: new Map([
+        ["1", "BRA"],
+        ["2", "ARG"]
+      ])
+    }
+  );
+
+  assert.equal(plan.fixture.home_penalties, 4);
+  assert.equal(plan.fixture.away_penalties, 3);
+  assert.equal(plan.fixture.winner_team_id, "BRA");
+});
