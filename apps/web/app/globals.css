@@ -746,7 +746,7 @@ button:disabled {
 }
 
 .tree-round {
-  grid-template-rows: 28px repeat(64, 34px);
+  grid-template-rows: 28px repeat(64, 42px);
 }
 
 .tree-round h3 {

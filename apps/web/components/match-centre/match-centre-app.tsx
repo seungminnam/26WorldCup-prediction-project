@@ -32,8 +32,13 @@ type StandingRow = {
 type KnockoutMatch = {
   id: string | number;
   round: string;
+  stage: string;
+  slots: string[];
   teamIds: string[];
   winnerId: string;
+  kickoff: string;
+  venue: string;
+  stadium: string;
   score?: Record<string, number>;
   wentToPenalties?: boolean;
 };
@@ -121,7 +126,6 @@ const bracketRoundMeta: Record<string, { interval: number; offset: number }> = {
 };
 
 const roundOrder = ["Round of 32", "Round of 16", "Quarterfinal", "Semifinal", "Final"];
-const venues = ["Los Angeles", "Dallas", "Atlanta", "Miami", "Vancouver", "Boston"];
 
 export function MatchCentreApp({ initialData }: { initialData?: TournamentData }) {
   const teams = initialData?.teams?.length ? initialData.teams : fallbackTeams;
@@ -358,7 +362,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                             style={{ "--row-start": index * meta.interval + meta.offset } as React.CSSProperties}
                           >
                             <div className="match-location">
-                              {venues[index % venues.length]} · {match.id}
+                              {match.stadium}, {match.venue} · M{match.id}
                             </div>
                             {match.teamIds.map((teamId) => (
                               <div
