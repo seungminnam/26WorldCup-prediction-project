@@ -236,6 +236,20 @@ test("loadTeamNamesById reads the teams table as a name lookup", async () => {
   assert.deepEqual(result, new Map([["MEX", "Mexico"]]));
 });
 
+test("loads provider fixture and team mappings for result sync", async () => {
+  const writer = createSupabaseWriter({
+    client: createMappingClient({
+      provider_fixture_mappings: [{ provider_fixture_id: "760415", fixture_id: "A-1" }],
+      provider_team_mappings: [{ provider_team_id: "203", team_id: "MEX" }]
+    })
+  });
+
+  const mappings = await writer.loadProviderMappings("espn");
+
+  assert.equal(mappings.fixtureByProviderId.get("760415"), "A-1");
+  assert.equal(mappings.teamByProviderId.get("203"), "MEX");
+});
+
 function createRecordingClient(calls) {
   return {
     from(table) {
@@ -243,6 +257,21 @@ function createRecordingClient(calls) {
         async upsert(rows, options) {
           calls.push({ table, rows, options });
           return { error: null };
+        }
+      };
+    }
+  };
+}
+
+function createMappingClient(rowsByTable) {
+  return {
+    from(table) {
+      return {
+        select() {
+          return this;
+        },
+        async eq() {
+          return { data: rowsByTable[table], error: null };
         }
       };
     }

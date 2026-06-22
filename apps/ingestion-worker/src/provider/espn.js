@@ -9,10 +9,28 @@ const LIVE_STATUS_NAMES = new Set([
 const FINAL_STATUS_NAMES = new Set(["STATUS_FULL_TIME", "STATUS_FINAL"]);
 const POSTPONED_STATUS_NAMES = new Set(["STATUS_POSTPONED", "STATUS_CANCELED", "STATUS_CANCELLED"]);
 const RESULT_PENDING_STATUS_NAMES = new Set(["STATUS_SUSPENDED", "STATUS_ABANDONED", "STATUS_DELAYED"]);
+const STADIUM_HOSTS = {
+  "AT&T Stadium": "Dallas",
+  "BC Place": "Vancouver",
+  "BMO Field": "Toronto",
+  "Estadio Akron": "Guadalajara",
+  "Estadio Banorte": "Mexico City",
+  "Estadio BBVA": "Monterrey",
+  "GEHA Field at Arrowhead Stadium": "Kansas City",
+  "Gillette Stadium": "Boston",
+  "Hard Rock Stadium": "Miami",
+  "Levi's Stadium": "San Francisco Bay Area",
+  "Lincoln Financial Field": "Philadelphia",
+  "Lumen Field": "Seattle",
+  "Mercedes-Benz Stadium": "Atlanta",
+  "MetLife Stadium": "New York/New Jersey",
+  "NRG Stadium": "Houston",
+  "SoFi Stadium": "Los Angeles"
+};
 
-export function normalizeEspnStatus(statusTypeName) {
-  if (FINAL_STATUS_NAMES.has(statusTypeName)) return "final";
-  if (LIVE_STATUS_NAMES.has(statusTypeName)) return "live";
+export function normalizeEspnStatus(statusTypeName, state) {
+  if (FINAL_STATUS_NAMES.has(statusTypeName) || state === "post") return "final";
+  if (LIVE_STATUS_NAMES.has(statusTypeName) || state === "in") return "live";
   if (POSTPONED_STATUS_NAMES.has(statusTypeName)) return "postponed";
   if (RESULT_PENDING_STATUS_NAMES.has(statusTypeName)) return "result_pending";
   return "scheduled";
@@ -28,7 +46,11 @@ export function normalizeEspnFixture(event) {
     throw new Error(`ESPN fixture ${fixtureId} is missing home or away competitor`);
   }
 
-  const status = normalizeEspnStatus(competition?.status?.type?.name);
+  const venueName = competition?.venue?.fullName ?? null;
+  const status = normalizeEspnStatus(
+    competition?.status?.type?.name,
+    competition?.status?.type?.state
+  );
   const hasScore = status === "live" || status === "final";
 
   return {
@@ -39,8 +61,10 @@ export function normalizeEspnFixture(event) {
     kickoffAt: event?.date,
     venue: {
       providerVenueId: optionalString(competition?.venue?.id),
-      name: competition?.venue?.fullName ?? null
+      name: venueName
     },
+    venueName,
+    venueCity: STADIUM_HOSTS[venueName] ?? competition?.venue?.address?.city ?? null,
     round: competition?.altGameNote ?? null,
     elapsed: hasScore ? secondsToMinutes(competition?.status?.clock) : null,
     status,
@@ -56,10 +80,7 @@ export function normalizeEspnPayload(payload, { knownTeamIds } = {}) {
   }
 
   const fixtures = payload.events.map(normalizeEspnFixture);
-
-  if (!knownTeamIds) {
-    return fixtures;
-  }
+  if (!knownTeamIds) return fixtures;
 
   return fixtures.filter(
     (fixture) => knownTeamIds.has(fixture.home.providerTeamId) && knownTeamIds.has(fixture.away.providerTeamId)
@@ -75,13 +96,35 @@ export function normalizeEspnTeams(payload) {
   }));
 }
 
+export function compareFixedFixtureMetadata(normalized, canonical) {
+  const drift = [];
+
+  if (new Date(normalized.kickoffAt).toISOString() !== new Date(canonical.kickoff).toISOString()) {
+    drift.push({ field: "kickoff", expected: canonical.kickoff, actual: normalized.kickoffAt });
+  }
+
+  if (normalized.venueCity !== canonical.venue) {
+    drift.push({ field: "venue", expected: canonical.venue, actual: normalized.venueCity });
+  }
+
+  const expectedParticipants = [canonical.homeTeamId, canonical.awayTeamId];
+  const actualParticipants = [normalized.home.code, normalized.away.code];
+  if (expectedParticipants.some(Boolean) && !arraysEqual(expectedParticipants, actualParticipants)) {
+    drift.push({ field: "participants", expected: expectedParticipants, actual: actualParticipants });
+  }
+
+  return drift;
+}
+
 function normalizeCompetitor(competitor, hasScore) {
   return {
     providerTeamId: String(competitor.team.id),
     name: competitor.team.displayName,
     code: competitor.team.abbreviation ?? null,
     goals: hasScore ? Number(competitor.score) : null,
-    penalties: null
+    penalties: hasScore && competitor.shootoutScore !== undefined
+      ? Number(competitor.shootoutScore)
+      : null
   };
 }
 
@@ -129,4 +172,8 @@ function secondsToMinutes(clock) {
 function optionalString(value) {
   if (value === undefined || value === null || value === "") return null;
   return String(value);
+}
+
+function arraysEqual(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }

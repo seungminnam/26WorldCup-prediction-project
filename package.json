@@ -13,6 +13,7 @@
     "web:build": "npm run build --workspace apps/web",
     "web:start": "npm run start --workspace apps/web",
     "db:seed:generate": "node scripts/generate-supabase-seed.mjs",
+    "audit:fixtures": "node --env-file-if-exists=apps/web/.env.local scripts/audit-fixture-integrity.mjs",
     "ingestion:test": "npm run test --workspace apps/ingestion-worker",
     "ingestion:dry-run": "npm run dry-run --workspace apps/ingestion-worker",
     "ingestion:mapping-dry-run": "npm run mapping-dry-run --workspace apps/ingestion-worker",
@@ -24,6 +25,7 @@
     "ingestion:fetch-espn-fixtures": "npm run fetch-espn-fixtures --workspace apps/ingestion-worker --",
     "ingestion:sync-espn-live": "npm run sync-espn-live --workspace apps/ingestion-worker --",
     "ingestion:compare-football-data": "npm run compare-football-data --workspace apps/ingestion-worker --",
+    "ingestion:sync-espn-results": "npm run sync-espn-results --workspace apps/ingestion-worker",
     "secret:scan": "bash scripts/secret-scan.sh",
     "test": "node --test",
     "check": "node --check src/**/*.js"

@@ -53,3 +53,22 @@ test("returns the parsed payload on success", async () => {
   const result = await client.fetchFixturesBetween({ dateFrom: "2026-06-18", dateTo: "2026-06-18" });
   assert.deepEqual(result, { events: [{ id: "1" }] });
 });
+
+test("fetches the complete World Cup scoreboard window", async () => {
+  let requestedUrl;
+  let requestedOptions;
+  const client = createEspnClient({
+    fetchImpl: async (url, options) => {
+      requestedUrl = new URL(url);
+      requestedOptions = options;
+      return { ok: true, json: async () => ({ events: [{ id: "760415" }] }) };
+    }
+  });
+
+  const events = await client.fetchTournamentEvents();
+
+  assert.equal(events.length, 1);
+  assert.equal(requestedUrl.searchParams.get("dates"), "20260611-20260719");
+  assert.equal(requestedUrl.searchParams.get("limit"), "200");
+  assert.ok(requestedOptions.signal instanceof AbortSignal);
+});

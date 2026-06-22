@@ -70,6 +70,8 @@ create table public.fixtures (
   ),
   home_team_id text references public.teams(id),
   away_team_id text references public.teams(id),
+  home_slot text,
+  away_slot text,
   kickoff_at timestamptz not null,
   venue_id text references public.venues(id),
   venue_name text,
@@ -296,7 +298,9 @@ select
   at.id as away_team_id,
   at.name as away_team_name,
   at.fifa_code as away_team_code,
-  at.flag_emoji as away_team_flag
+  at.flag_emoji as away_team_flag,
+  f.home_slot,
+  f.away_slot
 from public.fixtures f
 left join public.venues v on v.id = f.venue_id
 left join public.teams ht on ht.id = f.home_team_id

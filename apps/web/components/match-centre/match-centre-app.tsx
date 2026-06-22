@@ -32,8 +32,13 @@ type StandingRow = {
 type KnockoutMatch = {
   id: string | number;
   round: string;
+  stage: string;
+  slots: string[];
   teamIds: string[];
   winnerId: string;
+  kickoff: string;
+  venue: string;
+  stadium: string;
   score?: Record<string, number>;
   wentToPenalties?: boolean;
 };
@@ -121,12 +126,15 @@ const bracketRoundMeta: Record<string, { interval: number; offset: number }> = {
 };
 
 const roundOrder = ["Round of 32", "Round of 16", "Quarterfinal", "Semifinal", "Final"];
-const venues = ["Los Angeles", "Dallas", "Atlanta", "Miami", "Vancouver", "Boston"];
 
 export function MatchCentreApp({ initialData }: { initialData?: TournamentData }) {
   const teams = initialData?.teams?.length ? initialData.teams : fallbackTeams;
   const fixtures = initialData?.fixtures?.length ? initialData.fixtures : fallbackFixtures;
   const dataSource = initialData?.source ?? "seed";
+  const simulationFixtures = useMemo(
+    () => fixtures.filter(isGroupFixture),
+    [fixtures]
+  );
   const teamsById = useMemo(() => Object.fromEntries(teams.map((team) => [team.id, team])), [teams]) as Record<
     string,
     AppTeam
@@ -188,14 +196,25 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     [fixtures, teams]
   );
   const projectedStandings = forecast?.sampleBracket.groupRankings ?? [];
+  const thirdPlaceMatch = forecast?.sampleBracket.rounds["Third place"]?.[0];
   const selectedTeam = forecast?.probabilities.find(
     (team) => team.teamId === (selectedTeamId ?? forecast.probabilities[0]?.teamId)
   );
 
   function runForecast() {
     const fixtureList =
-      mode === "pre" ? fixtures.map(({ homeGoals, awayGoals, ...match }) => match) : fixtures;
-    const result = runMonteCarlo({ simulations: simulationCount, teamList: teams, fixtureList }) as ForecastResult;
+      mode === "pre"
+        ? simulationFixtures.map(({ homeGoals, awayGoals, ...match }) => match)
+        : simulationFixtures;
+    const result = (runMonteCarlo as unknown as (options: {
+      simulations: number;
+      teamList: AppTeam[];
+      fixtureList: AppFixture[];
+    }) => ForecastResult)({
+      simulations: simulationCount,
+      teamList: teams,
+      fixtureList
+    });
     setForecast(result);
     setSelectedTeamId((current) => current ?? result.probabilities[0]?.teamId);
   }
@@ -344,7 +363,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                             style={{ "--row-start": index * meta.interval + meta.offset } as React.CSSProperties}
                           >
                             <div className="match-location">
-                              {venues[index % venues.length]} · {match.id}
+                              {match.stadium}, {match.venue} · M{match.id}
                             </div>
                             {match.teamIds.map((teamId) => (
                               <div
@@ -365,6 +384,30 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                   ))}
                 </div>
               </div>
+              {thirdPlaceMatch && (
+                <div className="third-place-bracket">
+                  <h3>Third place</h3>
+                  <article className="bracket-match">
+                    <div className="match-location">
+                      {thirdPlaceMatch.stadium}, {thirdPlaceMatch.venue} · M{thirdPlaceMatch.id}
+                    </div>
+                    {thirdPlaceMatch.teamIds.map((teamId) => (
+                      <div
+                        key={teamId}
+                        className={`match-chip ${thirdPlaceMatch.winnerId === teamId ? "winner" : ""}`}
+                      >
+                        <span>
+                          {teamFlag(teamId, teamsById)} {teamName(teamId, teamsById)}
+                        </span>
+                        <span>{thirdPlaceMatch.score?.[teamId] ?? "-"}</span>
+                      </div>
+                    ))}
+                    {thirdPlaceMatch.wentToPenalties && (
+                      <div className="penalty-note">Advanced after penalties</div>
+                    )}
+                  </article>
+                </div>
+              )}
             </div>
           </section>
         )}
@@ -504,15 +547,15 @@ function FixtureCard({
   teamsById: Record<string, AppTeam>;
   viewerTimeZone: string;
 }) {
-  const homeTeam = teamsById[match.homeTeamId];
-  const awayTeam = teamsById[match.awayTeamId];
+  const homeTeam = match.homeTeamId ? teamsById[match.homeTeamId] : undefined;
+  const awayTeam = match.awayTeamId ? teamsById[match.awayTeamId] : undefined;
   const prediction =
     shouldShowPreMatchPrediction(match.status) &&
     Number.isFinite(homeTeam?.rating) &&
     Number.isFinite(awayTeam?.rating)
       ? predictMatch(homeTeam, awayTeam)
       : undefined;
-  const outcomes = prediction
+  const outcomes = prediction && homeTeam && awayTeam
     ? buildOutcomePresentation({
         homeName: homeTeam.name,
         awayName: awayTeam.name,
@@ -525,17 +568,19 @@ function FixtureCard({
       <div className="match-meta">
         <span className={`status ${match.status === "FT" ? "ft" : ""}`}>{match.status as MatchStatus}</span>
         <span>Match {match.matchNumber}</span>
-        <span>{match.venue}</span>
+        <span>{match.hostCity ? `${match.venue} · ${match.hostCity}` : match.venue}</span>
       </div>
       <div className="teams-score">
         <ScoreRow
           teamId={match.homeTeamId}
-          score={displayFixtureScore(match.status, match.homeGoals)}
+          slot={match.homeSlot}
+          score={scoreCell(match, "home")}
           teamsById={teamsById}
         />
         <ScoreRow
           teamId={match.awayTeamId}
-          score={displayFixtureScore(match.status, match.awayGoals)}
+          slot={match.awaySlot}
+          score={scoreCell(match, "away")}
           teamsById={teamsById}
         />
       </div>
@@ -584,18 +629,20 @@ function FixtureCard({
 
 function ScoreRow({
   teamId,
+  slot,
   score,
   teamsById
 }: {
-  teamId: string;
+  teamId: string | null;
+  slot: string;
   score: string | number;
   teamsById: Record<string, AppTeam>;
 }) {
   return (
     <div className="score-row">
       <span className="team-inline">
-        <span className="flag-badge">{teamFlag(teamId, teamsById)}</span>
-        {teamName(teamId, teamsById)}
+        <span className="flag-badge">{teamId ? teamFlag(teamId, teamsById) : "·"}</span>
+        {teamId ? teamName(teamId, teamsById) : slotLabel(slot)}
       </span>
       <span className="score">{score}</span>
     </div>
@@ -717,6 +764,28 @@ function scorerText(match: AppFixture, viewerTimeZone: string) {
   return match.scorers.map((scorer) => `${scorer.player} ${scorer.minute}'`).join(" · ");
 }
 
+function scoreCell(match: AppFixture, side: "home" | "away") {
+  const goals = side === "home" ? match.homeGoals : match.awayGoals;
+  const penalties = side === "home" ? match.homePenalties : match.awayPenalties;
+  const score = displayFixtureScore(match.status, goals);
+  return typeof score === "number" && typeof penalties === "number" ? `${score} (${penalties})` : score;
+}
+
+function isGroupFixture(match: AppFixture): match is AppFixture & {
+  group: string;
+  homeTeamId: string;
+  awayTeamId: string;
+} {
+  return match.stage === "group" && Boolean(match.group && match.homeTeamId && match.awayTeamId);
+}
+
+function slotLabel(slot: string) {
+  if (/^[12][A-L]$/.test(slot)) return `Group ${slot.slice(1)} #${slot[0]}`;
+  if (slot.startsWith("W")) return `Winner Match ${slot.slice(1)}`;
+  if (slot.startsWith("L")) return `Loser Match ${slot.slice(1)}`;
+  if (slot.startsWith("3 ")) return `Best 3rd (${slot.slice(2)})`;
+  return slot;
+}
 function formatPercent(value: number) {
   return `${Math.round(value * 1000) / 10}%`;
 }

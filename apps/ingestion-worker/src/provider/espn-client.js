@@ -31,6 +31,14 @@ export function createEspnClient({
 
     fetchTeams() {
       return request("teams", { limit: 60 });
+    },
+
+    async fetchTournamentEvents() {
+      const payload = await request("scoreboard", {
+        dates: "20260611-20260719",
+        limit: 200
+      });
+      return Array.isArray(payload.events) ? payload.events : [];
     }
   };
 }

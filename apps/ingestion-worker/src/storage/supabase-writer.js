@@ -71,7 +71,6 @@ export function createSupabaseWriter({ url, serviceRoleKey, client: injectedClie
 
       return result.data;
     },
-
     async applyLiveScorePlan(plan) {
       const fixtureResult = await client
         .from("fixtures")

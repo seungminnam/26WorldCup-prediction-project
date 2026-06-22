@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
+  compareFixedFixtureMetadata,
   normalizeEspnFixture,
   normalizeEspnPayload,
   normalizeEspnTeams,
@@ -23,6 +24,8 @@ test("normalizes a finished ESPN fixture with goal events", async () => {
     providerSeasonId: "2026",
     kickoffAt: "2026-06-11T19:00Z",
     venue: { providerVenueId: "1672", name: "Estadio Banorte" },
+    venueName: "Estadio Banorte",
+    venueCity: "Mexico City",
     round: "FIFA World Cup, Group A",
     elapsed: 90,
     status: "final",
@@ -120,4 +123,47 @@ test("normalizeEspnTeams returns provider-neutral team rows", async () => {
     { providerTeamId: "774", name: "South Africa", code: "RSA" },
     { providerTeamId: "773", name: "Czechia", code: "CZE" }
   ]);
+});
+
+const rawFixture = {
+  id: "760441",
+  date: "2026-06-19T01:00Z",
+  competitions: [
+    {
+      venue: { fullName: "Estadio Akron" },
+      status: { type: { state: "pre" } },
+      competitors: [
+        { homeAway: "home", score: "0", team: { id: "203", abbreviation: "MEX", displayName: "Mexico" } },
+        {
+          homeAway: "away",
+          score: "0",
+          team: { id: "451", abbreviation: "KOR", displayName: "Korea Republic" }
+        }
+      ],
+      details: []
+    }
+  ]
+};
+
+test("normalizes ESPN result data while retaining metadata for drift checks", () => {
+  const normalized = normalizeEspnFixture(rawFixture);
+
+  assert.equal(normalized.provider, "espn");
+  assert.equal(normalized.providerFixtureId, "760441");
+  assert.equal(normalized.kickoffAt, "2026-06-19T01:00Z");
+  assert.equal(normalized.venueName, "Estadio Akron");
+  assert.equal(normalized.home.code, "MEX");
+  assert.equal(normalized.away.code, "KOR");
+});
+
+test("reports fixed metadata drift without creating replacement fields", () => {
+  const normalized = normalizeEspnFixture(rawFixture);
+  const drift = compareFixedFixtureMetadata(normalized, {
+    kickoff: "2026-06-18T18:00:00.000Z",
+    venue: "Los Angeles",
+    homeTeamId: "MEX",
+    awayTeamId: "KOR"
+  });
+
+  assert.deepEqual(drift.map((item) => item.field), ["kickoff", "venue"]);
 });

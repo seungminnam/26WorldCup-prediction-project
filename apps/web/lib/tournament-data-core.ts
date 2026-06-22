@@ -1,0 +1,40 @@
+export function mapFixtureRows(rows: any[], eventRows: any[]) {
+  const eventsByFixture = eventRows.reduce<Record<string, any[]>>((accumulator, row) => {
+    if (!row.team_id) return accumulator;
+    accumulator[row.fixture_id] ??= [];
+    accumulator[row.fixture_id].push({
+      teamId: row.team_id,
+      player: row.player_name,
+      minute: row.minute
+    });
+    return accumulator;
+  }, {});
+
+  return rows.map((row) => ({
+    id: row.id,
+    matchNumber: row.match_number,
+    stage: row.stage,
+    group: row.group_code,
+    homeTeamId: row.home_team_id,
+    awayTeamId: row.away_team_id,
+    homeSlot: row.home_slot ?? row.home_team_id,
+    awaySlot: row.away_slot ?? row.away_team_id,
+    kickoff: row.kickoff_at,
+    venue: row.venue_name ?? "TBD",
+    hostCity: row.venue_city ?? undefined,
+    status: mapStatus(row.status),
+    ...(typeof row.home_goals === "number" ? { homeGoals: row.home_goals } : {}),
+    ...(typeof row.away_goals === "number" ? { awayGoals: row.away_goals } : {}),
+    ...(typeof row.home_penalties === "number" ? { homePenalties: row.home_penalties } : {}),
+    ...(typeof row.away_penalties === "number" ? { awayPenalties: row.away_penalties } : {}),
+    scorers: eventsByFixture[row.id] ?? []
+  }));
+}
+
+function mapStatus(status: string) {
+  if (status === "final") return "FT";
+  if (status === "result_pending") return "Result pending";
+  if (status === "live") return "Live";
+  if (status === "postponed") return "Postponed";
+  return "Upcoming";
+}

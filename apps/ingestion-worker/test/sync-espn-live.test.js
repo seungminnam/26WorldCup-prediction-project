@@ -68,7 +68,7 @@ const teams = {
 };
 
 const mappings = {
-  fixtureByProviderId: new Map([["760415", "A-2"]]),
+  fixtureByProviderId: new Map([["760415", "A-1"]]),
   teamByProviderId: new Map([
     ["203", "MEX"],
     ["774", "RSA"]
@@ -123,10 +123,10 @@ test("skips an unmapped provider fixture and continues instead of aborting", asy
   assert.equal(store.applied.length, 0);
   assert.equal(store.runs.length, 1);
   assert.equal(store.runs[0].status, "completed");
-  assert.deepEqual(store.runs[0].metadata, { skipped: result.skipped });
+  assert.deepEqual(store.runs[0].metadata, { skipped: result.skipped, drift: [] });
 });
 
-test("applies mapped fixtures while skipping unmapped ones in the same run", async () => {
+test("applies completed fixtures while ignoring scheduled fixtures", async () => {
   const mixedScoreboard = {
     events: [
       ...scoreboard.events,
@@ -169,9 +169,7 @@ test("applies mapped fixtures while skipping unmapped ones in the same run", asy
   const result = await runSyncEspnLive({ argv: ["--apply"], client, store });
 
   assert.equal(result.fixtureCount, 1);
-  assert.deepEqual(result.fixtureIds, ["A-2"]);
-  assert.deepEqual(result.skipped, [
-    { providerFixtureId: "760416", reason: "No local fixture mapping for espn:760416" }
-  ]);
+  assert.deepEqual(result.fixtureIds, ["A-1"]);
+  assert.deepEqual(result.skipped, []);
   assert.equal(store.applied.length, 1);
 });

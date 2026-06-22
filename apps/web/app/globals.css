@@ -746,7 +746,7 @@ button:disabled {
 }
 
 .tree-round {
-  grid-template-rows: 28px repeat(64, 34px);
+  grid-template-rows: 28px repeat(64, 42px);
 }
 
 .tree-round h3 {
@@ -808,6 +808,18 @@ button:disabled {
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 800;
+  text-transform: uppercase;
+}
+
+.third-place-bracket {
+  width: 270px;
+  margin-top: 24px;
+}
+
+.third-place-bracket h3 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
   text-transform: uppercase;
 }
 

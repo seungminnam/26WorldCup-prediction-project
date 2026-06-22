@@ -46,6 +46,8 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 ```
 
+Add both variables to the **Production** and **Preview** environments. Preview deployments without them fall back to the demo schedule, so completed matches appear as upcoming even though the Supabase results are intact. After changing environment scopes, redeploy the affected preview before validating its data-source badge.
+
 Do not expose provider API tokens, the Supabase service role key, database URL, database password, or any other secret to browser code. In Next.js, variables prefixed with `NEXT_PUBLIC_` are bundled for the client, so keep that prefix limited to browser-safe Supabase values.
 
 Future ingestion workers should store private secrets only in the worker host's secret manager. They should not be added to this repository, `.env.example`, or Vercel client-facing configuration.
