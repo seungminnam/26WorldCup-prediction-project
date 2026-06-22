@@ -196,6 +196,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     [fixtures, teams]
   );
   const projectedStandings = forecast?.sampleBracket.groupRankings ?? [];
+  const thirdPlaceMatch = forecast?.sampleBracket.rounds["Third place"]?.[0];
   const selectedTeam = forecast?.probabilities.find(
     (team) => team.teamId === (selectedTeamId ?? forecast.probabilities[0]?.teamId)
   );
@@ -383,6 +384,30 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                   ))}
                 </div>
               </div>
+              {thirdPlaceMatch && (
+                <div className="third-place-bracket">
+                  <h3>Third place</h3>
+                  <article className="bracket-match">
+                    <div className="match-location">
+                      {thirdPlaceMatch.stadium}, {thirdPlaceMatch.venue} · M{thirdPlaceMatch.id}
+                    </div>
+                    {thirdPlaceMatch.teamIds.map((teamId) => (
+                      <div
+                        key={teamId}
+                        className={`match-chip ${thirdPlaceMatch.winnerId === teamId ? "winner" : ""}`}
+                      >
+                        <span>
+                          {teamFlag(teamId, teamsById)} {teamName(teamId, teamsById)}
+                        </span>
+                        <span>{thirdPlaceMatch.score?.[teamId] ?? "-"}</span>
+                      </div>
+                    ))}
+                    {thirdPlaceMatch.wentToPenalties && (
+                      <div className="penalty-note">Advanced after penalties</div>
+                    )}
+                  </article>
+                </div>
+              )}
             </div>
           </section>
         )}

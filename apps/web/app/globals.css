@@ -811,6 +811,18 @@ button:disabled {
   text-transform: uppercase;
 }
 
+.third-place-bracket {
+  width: 270px;
+  margin-top: 24px;
+}
+
+.third-place-bracket h3 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
 .table-wrap {
   max-height: 520px;
   overflow: auto;
