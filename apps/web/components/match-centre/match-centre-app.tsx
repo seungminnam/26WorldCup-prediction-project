@@ -12,6 +12,12 @@ import {
 import type { AppFixture, AppTeam, TournamentData } from "@/lib/tournament-data";
 import { displayFixtureScore, shouldShowPreMatchPrediction } from "@/lib/fixture-presentation";
 import { buildOutcomePresentation } from "@/lib/prediction-presentation";
+import {
+  detectViewerTimeZone,
+  formatKickoffDateKey,
+  formatKickoffShortDate,
+  formatKickoffTime
+} from "@/lib/timezone-display";
 
 type TabName = "fixtures" | "standings" | "bracket" | "forecast";
 type MatchStatus = "FT" | "Upcoming" | "Live" | "Result pending" | "Postponed";
@@ -126,7 +132,8 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     AppTeam
   >;
   const [activeTab, setActiveTab] = useState<TabName>("fixtures");
-  const [selectedDate, setSelectedDate] = useState<string>(() => dateKey(fixtures[0].kickoff));
+  const [viewerTimeZone, setViewerTimeZone] = useState<string>("UTC");
+  const [selectedDate, setSelectedDate] = useState<string>(() => formatKickoffDateKey(fixtures[0].kickoff));
   const [simulationCount, setSimulationCount] = useState(1000);
   const [mode, setMode] = useState<"snapshot" | "pre">("snapshot");
   const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>();
@@ -138,6 +145,10 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     if (["fixtures", "standings", "bracket", "forecast"].includes(tab)) {
       setActiveTab(tab);
     }
+  }, []);
+
+  useEffect(() => {
+    setViewerTimeZone(detectViewerTimeZone());
   }, []);
 
   useEffect(() => {
@@ -163,12 +174,15 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
   const visibleMatches = useMemo(
     () =>
       fixtures
-        .filter((match) => dateKey(match.kickoff) === selectedDate)
+        .filter((match) => formatKickoffDateKey(match.kickoff) === selectedDate)
         .sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()),
     [selectedDate]
   );
 
-  const dateOptions = useMemo(() => [...new Set(fixtures.map((match) => dateKey(match.kickoff)))].sort(), []);
+  const dateOptions = useMemo(
+    () => [...new Set(fixtures.map((match) => formatKickoffDateKey(match.kickoff)))].sort(),
+    []
+  );
   const currentStandings = useMemo(
     () => buildStandings(completedFixtures(fixtures), teams),
     [fixtures, teams]
@@ -238,7 +252,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                 </div>
                 <div className="filter-pills" aria-label="Match day filter">
                   {dateOptions.map((day) => {
-                    const dayMatches = fixtures.filter((match) => dateKey(match.kickoff) === day);
+                    const dayMatches = fixtures.filter((match) => formatKickoffDateKey(match.kickoff) === day);
                     return (
                       <button
                         key={day}
@@ -247,16 +261,23 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                         onClick={() => setSelectedDate(day)}
                       >
                         <span>{dayMatches.length} matches</span>
-                        <strong>{shortDate(dayMatches[0].kickoff)}</strong>
+                        <strong>{formatKickoffShortDate(dayMatches[0].kickoff, viewerTimeZone)}</strong>
                       </button>
                     );
                   })}
                 </div>
               </div>
               <div className="match-list" aria-live="polite">
-                <div className="date-divider">{shortDate(visibleMatches[0].kickoff)}</div>
+                <div className="date-divider">
+                  {formatKickoffShortDate(visibleMatches[0].kickoff, viewerTimeZone)}
+                </div>
                 {visibleMatches.map((match) => (
-                  <FixtureCard key={match.id} match={match} teamsById={teamsById} />
+                  <FixtureCard
+                    key={match.id}
+                    match={match}
+                    teamsById={teamsById}
+                    viewerTimeZone={viewerTimeZone}
+                  />
                 ))}
               </div>
             </div>
@@ -474,7 +495,15 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function FixtureCard({ match, teamsById }: { match: AppFixture; teamsById: Record<string, AppTeam> }) {
+function FixtureCard({
+  match,
+  teamsById,
+  viewerTimeZone
+}: {
+  match: AppFixture;
+  teamsById: Record<string, AppTeam>;
+  viewerTimeZone: string;
+}) {
   const homeTeam = teamsById[match.homeTeamId];
   const awayTeam = teamsById[match.awayTeamId];
   const prediction =
@@ -510,7 +539,7 @@ function FixtureCard({ match, teamsById }: { match: AppFixture; teamsById: Recor
           teamsById={teamsById}
         />
       </div>
-      <div className="scorers">{scorerText(match)}</div>
+      <div className="scorers">{scorerText(match, viewerTimeZone)}</div>
       {prediction && (
         <div className="fixture-prediction">
           <div className="prediction-heading">
@@ -678,9 +707,11 @@ function groupLabels(teamList: AppTeam[]) {
   return [...new Set(teamList.map((team) => team.group))].sort();
 }
 
-function scorerText(match: AppFixture) {
+function scorerText(match: AppFixture, viewerTimeZone: string) {
   if (!match.scorers.length) {
-    return match.status === "FT" ? "No scorer data" : `${match.venue} · ${timeLabel(match.kickoff)}`;
+    return match.status === "FT"
+      ? "No scorer data"
+      : `${match.venue} · ${formatKickoffTime(match.kickoff, viewerTimeZone)}`;
   }
 
   return match.scorers.map((scorer) => `${scorer.player} ${scorer.minute}'`).join(" · ");
@@ -700,32 +731,6 @@ function teamFlag(teamId: string, teamsById: Record<string, AppTeam>) {
 
 function titleCase(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function dateKey(kickoff: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).format(new Date(kickoff));
-}
-
-function shortDate(kickoff: string) {
-  return new Intl.DateTimeFormat("en", {
-    timeZone: "Asia/Seoul",
-    weekday: "short",
-    month: "short",
-    day: "numeric"
-  }).format(new Date(kickoff));
-}
-
-function timeLabel(kickoff: string) {
-  return new Intl.DateTimeFormat("en", {
-    timeZone: "Asia/Seoul",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(kickoff));
 }
 
 function drawBracketConnectors(stage: HTMLDivElement | null) {
