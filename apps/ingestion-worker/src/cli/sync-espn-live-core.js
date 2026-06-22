@@ -27,12 +27,22 @@ export async function runSyncEspnLive({ argv, client, store, today = new Date() 
   const knownTeamIds = new Set(normalizeEspnTeams(teamsPayload).map((team) => team.providerTeamId));
   const fixtures = normalizeEspnPayload(scoreboardPayload, { knownTeamIds });
   const mappings = await store.loadProviderMappings("espn");
-  const plans = fixtures.map((fixture) => buildLiveScoreUpsertPlan(fixture, mappings));
+
+  const plans = [];
+  const skipped = [];
+  for (const fixture of fixtures) {
+    try {
+      plans.push(buildLiveScoreUpsertPlan(fixture, mappings));
+    } catch (error) {
+      skipped.push({ providerFixtureId: fixture.providerFixtureId, reason: error.message });
+    }
+  }
 
   const summary = {
     mode: apply ? "apply" : "dry-run",
     fixtureCount: plans.length,
-    fixtureIds: plans.map((plan) => plan.fixture.id)
+    fixtureIds: plans.map((plan) => plan.fixture.id),
+    skipped
   };
 
   if (!apply) {
@@ -52,7 +62,7 @@ export async function runSyncEspnLive({ argv, client, store, today = new Date() 
       rowsSeen: plans.length,
       rowsChanged,
       errorMessage: null,
-      metadata: {}
+      metadata: { skipped }
     });
   } catch (error) {
     try {
@@ -62,7 +72,7 @@ export async function runSyncEspnLive({ argv, client, store, today = new Date() 
         rowsSeen: plans.length,
         rowsChanged,
         errorMessage: error.message,
-        metadata: {}
+        metadata: { skipped }
       });
     } catch {
       // Preserve the sync failure even if observability storage is unavailable.
