@@ -109,10 +109,69 @@ test("apply mode records a failed run and rethrows on write failure", async () =
   assert.equal(store.runs[0].status, "failed");
 });
 
-test("rejects an unmapped provider fixture before any write", async () => {
+test("skips an unmapped provider fixture and continues instead of aborting", async () => {
   const client = buildClient(scoreboard, teams);
   const store = buildStore({ mappings: { fixtureByProviderId: new Map(), teamByProviderId: new Map() } });
 
-  await assert.rejects(runSyncEspnLive({ argv: ["--apply"], client, store }), /No local fixture mapping/);
+  const result = await runSyncEspnLive({ argv: ["--apply"], client, store });
+
+  assert.equal(result.mode, "apply");
+  assert.equal(result.fixtureCount, 0);
+  assert.deepEqual(result.skipped, [
+    { providerFixtureId: "760415", reason: "No local fixture mapping for espn:760415" }
+  ]);
   assert.equal(store.applied.length, 0);
+  assert.equal(store.runs.length, 1);
+  assert.equal(store.runs[0].status, "completed");
+  assert.deepEqual(store.runs[0].metadata, { skipped: result.skipped });
+});
+
+test("applies mapped fixtures while skipping unmapped ones in the same run", async () => {
+  const mixedScoreboard = {
+    events: [
+      ...scoreboard.events,
+      {
+        id: "760416",
+        date: "2026-06-12T19:00Z",
+        season: { year: 2026 },
+        competitions: [
+          {
+            venue: { id: "1700", fullName: "Sample Arena" },
+            altGameNote: "FIFA World Cup, Group A",
+            status: { clock: 0, type: { name: "STATUS_SCHEDULED" } },
+            competitors: [
+              { homeAway: "home", score: "0", team: { id: "773", displayName: "Czechia", abbreviation: "CZE" } },
+              { homeAway: "away", score: "0", team: { id: "774", displayName: "South Africa", abbreviation: "RSA" } }
+            ],
+            details: []
+          }
+        ]
+      }
+    ]
+  };
+  const mixedTeams = {
+    sports: [
+      {
+        leagues: [
+          {
+            teams: [
+              ...teams.sports[0].leagues[0].teams,
+              { team: { id: "773", displayName: "Czechia", abbreviation: "CZE" } }
+            ]
+          }
+        ]
+      }
+    ]
+  };
+  const client = buildClient(mixedScoreboard, mixedTeams);
+  const store = buildStore({ mappings });
+
+  const result = await runSyncEspnLive({ argv: ["--apply"], client, store });
+
+  assert.equal(result.fixtureCount, 1);
+  assert.deepEqual(result.fixtureIds, ["A-2"]);
+  assert.deepEqual(result.skipped, [
+    { providerFixtureId: "760416", reason: "No local fixture mapping for espn:760416" }
+  ]);
+  assert.equal(store.applied.length, 1);
 });
