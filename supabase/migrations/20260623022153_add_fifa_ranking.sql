@@ -1,0 +1,57 @@
+begin;
+
+alter table public.teams add column if not exists fifa_ranking integer;
+
+update public.teams set fifa_ranking = 14 where id = 'MEX';
+update public.teams set fifa_ranking = 60 where id = 'RSA';
+update public.teams set fifa_ranking = 25 where id = 'KOR';
+update public.teams set fifa_ranking = 40 where id = 'CZE';
+update public.teams set fifa_ranking = 30 where id = 'CAN';
+update public.teams set fifa_ranking = 64 where id = 'BIH';
+update public.teams set fifa_ranking = 56 where id = 'QAT';
+update public.teams set fifa_ranking = 19 where id = 'SUI';
+update public.teams set fifa_ranking = 83 where id = 'HAI';
+update public.teams set fifa_ranking = 42 where id = 'SCO';
+update public.teams set fifa_ranking = 6 where id = 'BRA';
+update public.teams set fifa_ranking = 7 where id = 'MAR';
+update public.teams set fifa_ranking = 17 where id = 'USA';
+update public.teams set fifa_ranking = 41 where id = 'PAR';
+update public.teams set fifa_ranking = 27 where id = 'AUS';
+update public.teams set fifa_ranking = 22 where id = 'TUR';
+update public.teams set fifa_ranking = 33 where id = 'CIV';
+update public.teams set fifa_ranking = 23 where id = 'ECU';
+update public.teams set fifa_ranking = 10 where id = 'GER';
+update public.teams set fifa_ranking = 82 where id = 'CUW';
+update public.teams set fifa_ranking = 8 where id = 'NED';
+update public.teams set fifa_ranking = 18 where id = 'JPN';
+update public.teams set fifa_ranking = 38 where id = 'SWE';
+update public.teams set fifa_ranking = 45 where id = 'TUN';
+update public.teams set fifa_ranking = 20 where id = 'IRN';
+update public.teams set fifa_ranking = 85 where id = 'NZL';
+update public.teams set fifa_ranking = 9 where id = 'BEL';
+update public.teams set fifa_ranking = 29 where id = 'EGY';
+update public.teams set fifa_ranking = 61 where id = 'KSA';
+update public.teams set fifa_ranking = 16 where id = 'URU';
+update public.teams set fifa_ranking = 2 where id = 'ESP';
+update public.teams set fifa_ranking = 67 where id = 'CPV';
+update public.teams set fifa_ranking = 3 where id = 'FRA';
+update public.teams set fifa_ranking = 15 where id = 'SEN';
+update public.teams set fifa_ranking = 57 where id = 'IRQ';
+update public.teams set fifa_ranking = 31 where id = 'NOR';
+update public.teams set fifa_ranking = 1 where id = 'ARG';
+update public.teams set fifa_ranking = 28 where id = 'ALG';
+update public.teams set fifa_ranking = 24 where id = 'AUT';
+update public.teams set fifa_ranking = 63 where id = 'JOR';
+update public.teams set fifa_ranking = 5 where id = 'POR';
+update public.teams set fifa_ranking = 46 where id = 'COD';
+update public.teams set fifa_ranking = 50 where id = 'UZB';
+update public.teams set fifa_ranking = 13 where id = 'COL';
+update public.teams set fifa_ranking = 73 where id = 'GHA';
+update public.teams set fifa_ranking = 34 where id = 'PAN';
+update public.teams set fifa_ranking = 4 where id = 'ENG';
+update public.teams set fifa_ranking = 11 where id = 'CRO';
+
+alter table public.teams alter column fifa_ranking set not null;
+alter table public.teams add constraint teams_fifa_ranking_check check (fifa_ranking > 0);
+
+commit;

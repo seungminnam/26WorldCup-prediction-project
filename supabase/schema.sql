@@ -37,6 +37,7 @@ create table public.teams (
   group_code text not null check (group_code ~ '^[A-L]$'),
   confederation text,
   rating numeric(7, 2) not null check (rating > 0),
+  fifa_ranking integer not null check (fifa_ranking > 0),
   flag_emoji text,
   flag_image_url text,
   primary_color text check (primary_color is null or primary_color ~ '^#[0-9A-Fa-f]{6}$'),
