@@ -737,7 +737,7 @@ function buildStandings(matchList: AppFixture[], teamList: AppTeam[]) {
   return groupLabels(teamList).map((group) => {
     const groupTeams = teamList.filter((team) => team.group === group);
     const groupFixtures = matchList.filter((match) => match.group === group);
-    return rankGroup(buildGroupTable(groupTeams, groupFixtures));
+    return rankGroup(buildGroupTable(groupTeams, groupFixtures), groupFixtures);
   });
 }
 
