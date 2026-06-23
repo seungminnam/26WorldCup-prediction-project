@@ -37,11 +37,19 @@ export function formatKickoffTime(kickoff, timeZone) {
   }).format(new Date(kickoff));
 }
 
+export function getFixtureDateKeys(fixtures, timeZone) {
+  return [...new Set(fixtures.map((fixture) => formatKickoffDateKey(fixture.kickoff, timeZone)))].sort();
+}
+
+export function hasFixtureDate(dateKeys, dateKey) {
+  return dateKeys.includes(dateKey);
+}
+
 export function selectDefaultFixtureDate(fixtures, timeZone, now = new Date()) {
-  const dateKeys = [...new Set(fixtures.map((fixture) => formatKickoffDateKey(fixture.kickoff, timeZone)))].sort();
+  const dateKeys = getFixtureDateKeys(fixtures, timeZone);
   const todayKey = formatKickoffDateKey(now, timeZone);
 
-  if (dateKeys.includes(todayKey)) {
+  if (hasFixtureDate(dateKeys, todayKey)) {
     return todayKey;
   }
 

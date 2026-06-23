@@ -254,12 +254,44 @@ p {
   font-weight: 700;
 }
 
+.date-filter-controls {
+  display: flex;
+  align-items: stretch;
+  max-width: 62%;
+  gap: 8px;
+  min-width: 0;
+}
+
 .filter-pills {
   display: flex;
-  max-width: 56%;
+  flex: 1 1 auto;
+  min-width: 0;
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 2px;
+}
+
+.today-jump {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 9px 12px;
+}
+
+.today-jump.active {
+  background: #e9fbf7;
+  border-color: var(--accent);
+}
+
+.today-jump:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .day-pill {
@@ -937,7 +969,7 @@ tbody tr.selected {
     position: static;
   }
 
-  .filter-pills {
+  .date-filter-controls {
     max-width: 100%;
   }
 }
@@ -968,7 +1000,7 @@ tbody tr.selected {
     flex-direction: column;
   }
 
-  .filter-pills {
+  .date-filter-controls {
     max-width: 100%;
   }
 
