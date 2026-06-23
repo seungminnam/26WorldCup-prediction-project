@@ -24,6 +24,8 @@ import {
   formatKickoffDateKey,
   formatKickoffShortDate,
   formatKickoffTime,
+  getFixtureDateKeys,
+  hasFixtureDate,
   selectDefaultFixtureDate
 } from "@/lib/timezone-display";
 
@@ -162,6 +164,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
   const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>();
   const [forecast, setForecast] = useState<ForecastResult | undefined>();
   const bracketRef = useRef<HTMLDivElement | null>(null);
+  const datePillRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   useEffect(() => {
     const tab = window.location.hash.replace("#", "") as TabName;
@@ -178,7 +181,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
   useEffect(() => {
     if (!viewerTimeZoneDetected) return;
 
-    const dateKeys = new Set(fixtures.map((match) => formatKickoffDateKey(match.kickoff, viewerTimeZone)));
+    const dateKeys = new Set(getFixtureDateKeys(fixtures, viewerTimeZone));
     setSelectedDate((current) => {
       if (hasUserSelectedDate && dateKeys.has(current)) {
         return current;
@@ -224,6 +227,16 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     }
   }, [forecast, activeTab]);
 
+  useEffect(() => {
+    if (!viewerTimeZoneDetected || activeTab !== "fixtures") return;
+
+    datePillRefs.current[selectedDate]?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center"
+    });
+  }, [activeTab, selectedDate, viewerTimeZoneDetected]);
+
   const visibleMatches = useMemo(
     () =>
       fixtures
@@ -233,13 +246,14 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
   );
 
   const dateOptions = useMemo(
-    () => [...new Set(fixtures.map((match) => formatKickoffDateKey(match.kickoff, viewerTimeZone)))].sort(),
+    () => getFixtureDateKeys(fixtures, viewerTimeZone),
     [fixtures, viewerTimeZone]
   );
   const todayDateKey = useMemo(
     () => formatKickoffDateKey(new Date(), viewerTimeZone),
     [viewerTimeZone]
   );
+  const hasTodayFixtures = viewerTimeZoneDetected && hasFixtureDate(dateOptions, todayDateKey);
   const currentStandings = useMemo(
     () => buildStandings(completedFixtures(fixtures), teams),
     [fixtures, teams]
@@ -266,6 +280,13 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     });
     setForecast(result);
     setSelectedTeamId((current) => current ?? result.probabilities[0]?.teamId);
+  }
+
+  function jumpToToday() {
+    if (!hasTodayFixtures) return;
+
+    setHasUserSelectedDate(true);
+    setSelectedDate(todayDateKey);
   }
 
   return (
@@ -321,30 +342,43 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                       : ""}
                   </span>
                 </div>
-                <div className="filter-pills" aria-label="Match day filter">
-                  {dateOptions.map((day) => {
-                    const dayMatches = fixtures.filter(
-                      (match) => formatKickoffDateKey(match.kickoff, viewerTimeZone) === day
-                    );
-                    const isToday = viewerTimeZoneDetected && day === todayDateKey;
-                    return (
-                      <button
-                        key={day}
-                        className={`day-pill ${selectedDate === day ? "active" : ""} ${isToday ? "today" : ""}`}
-                        type="button"
-                        onClick={() => {
-                          setHasUserSelectedDate(true);
-                          setSelectedDate(day);
-                        }}
-                      >
-                        <span>{dayMatches.length} matches</span>
-                        <strong>
-                          {formatKickoffShortDate(dayMatches[0].kickoff, viewerTimeZone)}
-                          {isToday ? " · Today" : ""}
-                        </strong>
-                      </button>
-                    );
-                  })}
+                <div className="date-filter-controls">
+                  <button
+                    className={`today-jump ${selectedDate === todayDateKey ? "active" : ""}`}
+                    type="button"
+                    disabled={!hasTodayFixtures}
+                    onClick={jumpToToday}
+                  >
+                    Today
+                  </button>
+                  <div className="filter-pills" aria-label="Match day filter">
+                    {dateOptions.map((day) => {
+                      const dayMatches = fixtures.filter(
+                        (match) => formatKickoffDateKey(match.kickoff, viewerTimeZone) === day
+                      );
+                      const isToday = viewerTimeZoneDetected && day === todayDateKey;
+                      return (
+                        <button
+                          key={day}
+                          ref={(element) => {
+                            datePillRefs.current[day] = element;
+                          }}
+                          className={`day-pill ${selectedDate === day ? "active" : ""} ${isToday ? "today" : ""}`}
+                          type="button"
+                          onClick={() => {
+                            setHasUserSelectedDate(true);
+                            setSelectedDate(day);
+                          }}
+                        >
+                          <span>{dayMatches.length} matches</span>
+                          <strong>
+                            {formatKickoffShortDate(dayMatches[0].kickoff, viewerTimeZone)}
+                            {isToday ? " · Today" : ""}
+                          </strong>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
               <div className="match-list" aria-live="polite">

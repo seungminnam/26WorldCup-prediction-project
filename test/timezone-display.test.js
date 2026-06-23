@@ -6,6 +6,8 @@ import {
   formatKickoffDateKey,
   formatKickoffShortDate,
   formatKickoffTime,
+  getFixtureDateKeys,
+  hasFixtureDate,
   selectDefaultFixtureDate
 } from "../apps/web/lib/timezone-display.js";
 import { canonicalSchedule } from "../packages/tournament-engine/src/index.js";
@@ -50,6 +52,21 @@ test("KST June 23 contains the expected canonical match set", () => {
     .map((fixture) => fixture.matchNumber);
 
   assert.deepEqual(matchNumbers, [41, 42, 43, 44]);
+});
+
+test("getFixtureDateKeys returns unique sorted viewer dates", () => {
+  const dateKeys = getFixtureDateKeys(canonicalSchedule, "Asia/Seoul");
+
+  assert.equal(dateKeys.filter((dateKey) => dateKey === "2026-06-23").length, 1);
+  assert.equal(dateKeys.includes("2026-06-23"), true);
+  assert.deepEqual([...dateKeys].sort(), dateKeys);
+});
+
+test("hasFixtureDate enables today jumps only when that viewer date has fixtures", () => {
+  const dateKeys = getFixtureDateKeys(canonicalSchedule, "Asia/Seoul");
+
+  assert.equal(hasFixtureDate(dateKeys, "2026-06-23"), true);
+  assert.equal(hasFixtureDate(dateKeys, "2026-08-01"), false);
 });
 
 test("selectDefaultFixtureDate picks the viewer's today when matches exist", () => {
