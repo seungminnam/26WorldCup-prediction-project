@@ -36,6 +36,7 @@ export type TournamentData = {
   teams: AppTeam[];
   fixtures: AppFixture[];
   source: "supabase" | "seed";
+  fetchedAt: string;
 };
 
 type TeamRow = {
@@ -83,7 +84,8 @@ const fallbackData: TournamentData = {
     scorers: [...fixture.scorers],
     cards: []
   })) as AppFixture[],
-  source: "seed"
+  source: "seed",
+  fetchedAt: ""
 };
 
 export async function getTournamentData(): Promise<TournamentData> {
@@ -91,7 +93,7 @@ export async function getTournamentData(): Promise<TournamentData> {
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
   if (!url || !key) {
-    return fallbackData;
+    return withFetchedAt(fallbackData);
   }
 
   const supabase = createClient(url, key, {
@@ -114,7 +116,7 @@ export async function getTournamentData(): Promise<TournamentData> {
   ]);
 
   if (teamsResult.error || fixturesResult.error || eventsResult.error) {
-    return fallbackData;
+    return withFetchedAt(fallbackData);
   }
 
   const teams = mapTeams((teamsResult.data ?? []) as TeamRow[]);
@@ -124,14 +126,14 @@ export async function getTournamentData(): Promise<TournamentData> {
   );
 
   if (!teams.length || !fixtures.length) {
-    return fallbackData;
+    return withFetchedAt(fallbackData);
   }
 
-  return {
+  return withFetchedAt({
     teams,
     fixtures,
     source: "supabase"
-  };
+  });
 }
 
 function mapTeams(rows: TeamRow[]): AppTeam[] {
@@ -147,4 +149,11 @@ function mapTeams(rows: TeamRow[]): AppTeam[] {
 
 function mapFixtures(rows: FixtureCardRow[], eventRows: MatchEventRow[]): AppFixture[] {
   return mapFixtureRows(rows, eventRows) as AppFixture[];
+}
+
+function withFetchedAt(data: Omit<TournamentData, "fetchedAt"> | TournamentData): TournamentData {
+  return {
+    ...data,
+    fetchedAt: new Date().toISOString()
+  };
 }
