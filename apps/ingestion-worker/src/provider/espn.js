@@ -130,7 +130,7 @@ function normalizeCompetitor(competitor, hasScore) {
 
 function normalizeEvents(fixtureId, details) {
   return details
-    .filter((detail) => detail.scoringPlay === true)
+    .filter((detail) => detail.scoringPlay === true || detail.yellowCard === true || detail.redCard === true)
     .map((detail) => {
       const teamId = String(detail.team?.id ?? "");
       const athlete = detail.athletesInvolved?.[0];
@@ -144,9 +144,17 @@ function normalizeEvents(fixtureId, details) {
         assistPlayerName: null,
         minute,
         stoppageMinute,
-        eventType: detail.ownGoal ? "own_goal" : detail.penaltyKick ? "penalty_goal" : "goal"
+        eventType: classifyEventType(detail)
       };
     });
+}
+
+function classifyEventType(detail) {
+  if (detail.redCard) return "red_card";
+  if (detail.yellowCard) return "yellow_card";
+  if (detail.ownGoal) return "own_goal";
+  if (detail.penaltyKick) return "penalty_goal";
+  return "goal";
 }
 
 function parseClockDisplay(clock) {
