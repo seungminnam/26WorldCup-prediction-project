@@ -41,6 +41,21 @@ function createCounters(teamList) {
   );
 }
 
+function createGroupProjectionCounters(teamList) {
+  return Object.fromEntries(
+    teamList.map((team) => [
+      team.id,
+      {
+        teamId: team.id,
+        rankCounts: [0, 0, 0, 0],
+        points: 0,
+        goalDifference: 0,
+        goalsFor: 0
+      }
+    ])
+  );
+}
+
 function reached(finish, target) {
   return finishRank[finish] >= finishRank[target];
 }
@@ -79,13 +94,16 @@ export function runMonteCarlo({
   simulations = 1000,
   teamList = teams,
   fixtureList = fixtures,
-  random = Math.random
+  random,
+  seed
 } = {}) {
   const counters = createCounters(teamList);
+  const groupProjectionCounters = createGroupProjectionCounters(teamList);
+  const simulationRandom = random ?? (seed === undefined ? Math.random : createSeededRandom(seed));
   let sampleBracket;
 
   for (let index = 0; index < simulations; index += 1) {
-    const tournament = simulateTournament({ teamList, fixtureList, random });
+    const tournament = simulateTournament({ teamList, fixtureList, random: simulationRandom });
     if (index === 0) {
       sampleBracket = tournament;
     }
@@ -96,6 +114,16 @@ export function runMonteCarlo({
           counters[teamId][field] += 1;
         }
       }
+    }
+
+    for (const ranking of tournament.groupRankings) {
+      ranking.forEach((row, rankIndex) => {
+        const projection = groupProjectionCounters[row.teamId];
+        projection.rankCounts[rankIndex] += 1;
+        projection.points += row.points;
+        projection.goalDifference += row.goalDifference;
+        projection.goalsFor += row.goalsFor;
+      });
     }
   }
 
@@ -116,11 +144,51 @@ export function runMonteCarlo({
       };
     })
     .sort((a, b) => b.champion - a.champion || b.final - a.final || b.rating - a.rating);
+  const probabilitiesByTeamId = new Map(probabilities.map((row) => [row.teamId, row]));
+  const groupProjections = Object.values(groupProjectionCounters)
+    .map((row) => {
+      const team = teamList.find((candidate) => candidate.id === row.teamId);
+      const rankProbabilities = row.rankCounts.map((count) => count / simulations);
+      const expectedRank = rankProbabilities.reduce(
+        (sum, probability, index) => sum + probability * (index + 1),
+        0
+      );
+
+      return {
+        teamId: row.teamId,
+        name: team.name,
+        group: team.group,
+        rating: team.rating,
+        averagePoints: row.points / simulations,
+        averageGoalDifference: row.goalDifference / simulations,
+        averageGoalsFor: row.goalsFor / simulations,
+        expectedRank,
+        rankProbabilities,
+        roundOf32: probabilitiesByTeamId.get(row.teamId)?.roundOf32 ?? 0
+      };
+    })
+    .sort((a, b) => a.group.localeCompare(b.group) || a.expectedRank - b.expectedRank || b.rating - a.rating);
 
   return {
     simulations,
     teams: teamList,
     probabilities,
+    groupProjections,
     sampleBracket
+  };
+}
+
+export function createSeededRandom(seedText) {
+  let state = 2166136261;
+  for (let index = 0; index < String(seedText).length; index += 1) {
+    state = Math.imul(state ^ String(seedText).charCodeAt(index), 16777619);
+  }
+
+  return function random() {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
   };
 }

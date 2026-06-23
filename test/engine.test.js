@@ -132,10 +132,20 @@ test("runMonteCarlo aggregates advancement probabilities", () => {
 
   assert.equal(result.teams.length, 48);
   assert.equal(result.probabilities.length, 48);
+  assert.equal(result.groupProjections.length, 48);
   assert.equal(result.sampleBracket.rounds["Round of 32"].length, 16);
   assert.ok(result.probabilities.every((row) => row.roundOf32 >= 0 && row.roundOf32 <= 1));
+  assert.ok(result.groupProjections.every((row) => row.rankProbabilities.length === 4));
+  assert.ok(result.groupProjections.every((row) => row.roundOf32 >= 0 && row.roundOf32 <= 1));
   assert.equal(
     result.probabilities.reduce((sum, row) => sum + row.champion, 0),
     1
   );
+});
+
+test("runMonteCarlo produces repeatable forecasts for the same seed", () => {
+  const first = runMonteCarlo({ simulations: 20, seed: "snapshot:group-stage:current" });
+  const second = runMonteCarlo({ simulations: 20, seed: "snapshot:group-stage:current" });
+
+  assert.deepEqual(second, first);
 });
