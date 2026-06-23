@@ -64,7 +64,10 @@ type ForecastResult = {
 };
 
 const fallbackTeams = teamSeed as AppTeam[];
-const fallbackFixtures = fixtureSeed as AppFixture[];
+const fallbackFixtures = fixtureSeed.map((fixture: any) => ({
+  ...fixture,
+  cards: fixture.cards ?? []
+})) as AppFixture[];
 
 const flags: Record<string, string> = {
   ARG: "🇦🇷",
