@@ -406,8 +406,17 @@ p {
   padding-top: 10px;
 }
 
+.fixture-stakes {
+  grid-column: 2 / -1;
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
 .prediction-heading,
-.likely-scorelines {
+.likely-scorelines,
+.stakes-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -415,8 +424,84 @@ p {
 }
 
 .prediction-heading span,
-.fixture-prediction small {
+.fixture-prediction small,
+.stakes-heading span,
+.stakes-card small {
   color: var(--muted);
+}
+
+.stakes-heading {
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.stakes-heading strong {
+  color: var(--accent);
+  font-size: 0.76rem;
+}
+
+.stakes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stakes-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff, #f8fbfb);
+  padding: 9px;
+}
+
+.stakes-card > span,
+.stakes-card > strong,
+.stakes-card > small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stakes-card > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.stakes-card strong {
+  margin-top: 5px;
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.stakes-card small {
+  margin-top: 2px;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.delta-badge {
+  display: inline-grid;
+  margin-left: 6px;
+  border-radius: 999px;
+  padding: 2px 6px;
+  background: #eef3f2;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 950;
+  vertical-align: middle;
+}
+
+.delta-badge.up {
+  background: #e9fbf7;
+  color: var(--accent);
+}
+
+.delta-badge.down {
+  background: #fff0ec;
+  color: #a13f22;
 }
 
 .probability-legend {
@@ -611,6 +696,10 @@ p {
   font-size: 0.9rem;
 }
 
+.standing-card.projected h3 {
+  background: #eef8f6;
+}
+
 .standings-layout > .panel:first-child .standings-grid {
   grid-template-columns: 1fr;
 }
@@ -627,6 +716,17 @@ p {
 .mini-table th:nth-child(2),
 .mini-table td:nth-child(2) {
   text-align: left;
+}
+
+.projected-table th,
+.projected-table td {
+  white-space: nowrap;
+}
+
+.projected-table td:nth-child(2),
+.projected-table th:nth-child(2) {
+  width: 100%;
+  white-space: normal;
 }
 
 .forecast-controls {
@@ -1020,6 +1120,14 @@ tbody tr.selected {
 
   .fixture-prediction {
     grid-column: 1;
+  }
+
+  .fixture-stakes {
+    grid-column: 1;
+  }
+
+  .stakes-grid {
+    grid-template-columns: 1fr;
   }
 
   .probability-legend {

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildOutcomePresentation } from "../apps/web/lib/prediction-presentation.js";
+import {
+  buildOutcomePresentation,
+  formatPercentagePointDelta
+} from "../apps/web/lib/prediction-presentation.js";
 
 test("buildOutcomePresentation uses team names and preserves the probability widths", () => {
   const result = buildOutcomePresentation({
@@ -28,4 +31,10 @@ test("buildOutcomePresentation keeps an extreme one-percent segment mathematical
   assert.equal(result[2].percentLabel, "1%");
   assert.equal(result[2].width, "1%");
   assert.equal(result.reduce((sum, outcome) => sum + Number.parseFloat(outcome.width), 0), 100);
+});
+
+test("formatPercentagePointDelta renders signed percentage-point movement", () => {
+  assert.equal(formatPercentagePointDelta(0.74, 0.52), "+22pp");
+  assert.equal(formatPercentagePointDelta(0.31, 0.52), "-21pp");
+  assert.equal(formatPercentagePointDelta(0.524, 0.52), "0pp");
 });

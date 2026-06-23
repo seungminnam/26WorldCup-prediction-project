@@ -18,7 +18,7 @@ import {
   shouldShowDataLoadedAt,
   shouldRefreshLiveData
 } from "@/lib/live-refresh";
-import { buildOutcomePresentation } from "@/lib/prediction-presentation";
+import { buildOutcomePresentation, formatPercentagePointDelta } from "@/lib/prediction-presentation";
 import {
   detectViewerTimeZone,
   formatKickoffDateKey,
@@ -63,14 +63,40 @@ type ProbabilityRow = {
   final: number;
   champion: number;
 };
+type GroupProjectionRow = {
+  teamId: string;
+  name: string;
+  group: string;
+  averagePoints: number;
+  averageGoalDifference: number;
+  averageGoalsFor: number;
+  expectedRank: number;
+  rankProbabilities: number[];
+  roundOf32: number;
+};
 type ForecastResult = {
   simulations: number;
   probabilities: ProbabilityRow[];
+  groupProjections: GroupProjectionRow[];
   sampleBracket: {
     groupRankings: StandingRow[][];
     rounds: Record<string, KnockoutMatch[]>;
     teamFinishes: Record<string, string>;
   };
+};
+type MatchStakesScenario = {
+  key: "homeWin" | "draw" | "awayWin";
+  label: string;
+  homeRoundOf32: number;
+  awayRoundOf32: number;
+  homeRoundOf32Delta: number;
+  awayRoundOf32Delta: number;
+};
+type MatchStakes = {
+  simulations: number;
+  homeTeamId: string;
+  awayTeamId: string;
+  scenarios: MatchStakesScenario[];
 };
 
 const fallbackTeams = teamSeed as AppTeam[];
@@ -139,6 +165,12 @@ const bracketRoundMeta: Record<string, { interval: number; offset: number }> = {
 };
 
 const roundOrder = ["Round of 32", "Round of 16", "Quarterfinal", "Semifinal", "Final"];
+const stakesSimulationCount = 250;
+const stakesScenarios = [
+  { key: "homeWin" },
+  { key: "draw" },
+  { key: "awayWin" }
+] as const;
 
 export function MatchCentreApp({ initialData }: { initialData?: TournamentData }) {
   const router = useRouter();
@@ -258,7 +290,32 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     () => buildStandings(completedFixtures(fixtures), teams),
     [fixtures, teams]
   );
-  const projectedStandings = forecast?.sampleBracket.groupRankings ?? [];
+  const projectedStandings = useMemo(
+    () => groupProjectedStandings(forecast?.groupProjections ?? []),
+    [forecast]
+  );
+  const forecastProbabilitiesByTeamId = useMemo(
+    () => new Map((forecast?.probabilities ?? []).map((row) => [row.teamId, row])),
+    [forecast]
+  );
+  const fixtureStakesByMatchId = useMemo(
+    () =>
+      Object.fromEntries(
+        visibleMatches
+          .map((match) => [
+            String(match.id),
+            buildMatchStakes({
+              match,
+              fixtureList: simulationFixtures,
+              teamList: teams,
+              teamsById,
+              baselineProbabilitiesByTeamId: forecastProbabilitiesByTeamId
+            })
+          ])
+          .filter((entry): entry is [string, MatchStakes] => Boolean(entry[1]))
+      ),
+    [forecastProbabilitiesByTeamId, simulationFixtures, teams, teamsById, visibleMatches]
+  );
   const thirdPlaceMatch = forecast?.sampleBracket.rounds["Third place"]?.[0];
   const selectedTeam = forecast?.probabilities.find(
     (team) => team.teamId === (selectedTeamId ?? forecast.probabilities[0]?.teamId)
@@ -273,10 +330,12 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
       simulations: number;
       teamList: AppTeam[];
       fixtureList: AppFixture[];
+      seed?: string;
     }) => ForecastResult)({
       simulations: simulationCount,
       teamList: teams,
-      fixtureList
+      fixtureList,
+      seed: buildForecastSeed({ mode, simulationCount, fixtureList })
     });
     setForecast(result);
     setSelectedTeamId((current) => current ?? result.probabilities[0]?.teamId);
@@ -395,6 +454,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                     teamsById={teamsById}
                     viewerTimeZone={viewerTimeZone}
                     isToday={formatKickoffDateKey(match.kickoff, viewerTimeZone) === todayDateKey}
+                    stakes={fixtureStakesByMatchId[String(match.id)]}
                   />
                 ))}
               </div>
@@ -429,7 +489,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                 </div>
                 <div className="standings-grid">
                   {projectedStandings.map((rows) => (
-                    <StandingTable key={rows[0].group} rows={rows} teamsById={teamsById} />
+                    <ProjectedStandingTable key={rows[0].group} rows={rows} teamsById={teamsById} />
                   ))}
                 </div>
               </div>
@@ -641,12 +701,14 @@ function FixtureCard({
   match,
   teamsById,
   viewerTimeZone,
-  isToday
+  isToday,
+  stakes
 }: {
   match: AppFixture;
   teamsById: Record<string, AppTeam>;
   viewerTimeZone: string;
   isToday: boolean;
+  stakes?: MatchStakes;
 }) {
   const homeTeam = match.homeTeamId ? teamsById[match.homeTeamId] : undefined;
   const awayTeam = match.awayTeamId ? teamsById[match.awayTeamId] : undefined;
@@ -724,6 +786,39 @@ function FixtureCard({
           <small>Statistical baseline, not a trained ML model</small>
         </div>
       )}
+      {stakes && homeTeam && awayTeam && (
+        <div className="fixture-stakes">
+          <div className="stakes-heading">
+            <span>Qualification impact</span>
+            <strong>{stakes.simulations} snapshot sims</strong>
+          </div>
+          <div className="stakes-grid" aria-label="Conditional Round of 32 impact">
+            {stakes.scenarios.map((scenario) => (
+              <div key={scenario.key} className="stakes-card">
+                <span>{scenario.label}</span>
+                <strong>
+                  {homeTeam.id} {formatPercent(scenario.homeRoundOf32)}
+                  <span className={`delta-badge ${deltaTone(scenario.homeRoundOf32Delta)}`}>
+                    {formatPercentagePointDelta(
+                      scenario.homeRoundOf32,
+                      scenario.homeRoundOf32 - scenario.homeRoundOf32Delta
+                    )}
+                  </span>
+                </strong>
+                <small>
+                  {awayTeam.id} {formatPercent(scenario.awayRoundOf32)}
+                  <span className={`delta-badge ${deltaTone(scenario.awayRoundOf32Delta)}`}>
+                    {formatPercentagePointDelta(
+                      scenario.awayRoundOf32,
+                      scenario.awayRoundOf32 - scenario.awayRoundOf32Delta
+                    )}
+                  </span>
+                </small>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </article>
   );
 }
@@ -797,6 +892,50 @@ function StandingTable({
   );
 }
 
+function ProjectedStandingTable({
+  rows,
+  teamsById
+}: {
+  rows: GroupProjectionRow[];
+  teamsById: Record<string, AppTeam>;
+}) {
+  return (
+    <article className="standing-card projected">
+      <h3>Group {rows[0].group}</h3>
+      <table className="mini-table projected-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Team</th>
+            <th>Pts</th>
+            <th>GD</th>
+            <th>Top 2</th>
+            <th>R32</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={row.teamId}>
+              <td>{index + 1}</td>
+              <td>
+                <span className="team-name compact">
+                  {teamFlag(row.teamId, teamsById)} {teamName(row.teamId, teamsById)}
+                </span>
+              </td>
+              <td>{formatDecimal(row.averagePoints)}</td>
+              <td>{formatSignedDecimal(row.averageGoalDifference)}</td>
+              <td>{formatPercent(topTwoProbability(row))}</td>
+              <td>
+                <strong>{formatPercent(row.roundOf32)}</strong>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </article>
+  );
+}
+
 function TeamDetail({
   team,
   finish,
@@ -849,6 +988,159 @@ function completedFixtures(fixtureList: AppFixture[]) {
       Number.isFinite(match.homeGoals) &&
       Number.isFinite(match.awayGoals)
   );
+}
+
+function buildMatchStakes({
+  match,
+  fixtureList,
+  teamList,
+  teamsById,
+  baselineProbabilitiesByTeamId
+}: {
+  match: AppFixture;
+  fixtureList: AppFixture[];
+  teamList: AppTeam[];
+  teamsById: Record<string, AppTeam>;
+  baselineProbabilitiesByTeamId: Map<string, ProbabilityRow>;
+}): MatchStakes | undefined {
+  if (!isGroupFixture(match) || !shouldShowPreMatchPrediction(match.status)) {
+    return undefined;
+  }
+
+  const homeTeam = teamsById[match.homeTeamId];
+  const awayTeam = teamsById[match.awayTeamId];
+  if (!homeTeam || !awayTeam) {
+    return undefined;
+  }
+  const homeBaseline = baselineProbabilitiesByTeamId.get(homeTeam.id)?.roundOf32;
+  const awayBaseline = baselineProbabilitiesByTeamId.get(awayTeam.id)?.roundOf32;
+  if (typeof homeBaseline !== "number" || typeof awayBaseline !== "number") {
+    return undefined;
+  }
+
+  const scenarios = stakesScenarios.map((scenario) => {
+    const score = likelyScenarioScore(scenario.key, homeTeam, awayTeam);
+    const conditionalFixtures = fixtureList.map((fixture) =>
+      fixture.id === match.id
+        ? {
+            ...fixture,
+            status: "FT",
+            homeGoals: score.homeGoals,
+            awayGoals: score.awayGoals
+          }
+        : fixture
+    );
+    const forecast = (runMonteCarlo as unknown as (options: {
+      simulations: number;
+      teamList: AppTeam[];
+      fixtureList: AppFixture[];
+      seed: string;
+    }) => ForecastResult)({
+      simulations: stakesSimulationCount,
+      teamList,
+      fixtureList: conditionalFixtures,
+      seed: buildForecastSeed({
+        mode: `stakes:${match.id}:${scenario.key}`,
+        simulationCount: stakesSimulationCount,
+        fixtureList: conditionalFixtures
+      })
+    });
+    const homeProjection = forecast.probabilities.find((row) => row.teamId === match.homeTeamId);
+    const awayProjection = forecast.probabilities.find((row) => row.teamId === match.awayTeamId);
+    const homeRoundOf32 = homeProjection?.roundOf32 ?? 0;
+    const awayRoundOf32 = awayProjection?.roundOf32 ?? 0;
+
+    return {
+      key: scenario.key,
+      label: scenarioLabel(scenario.key, homeTeam.id, awayTeam.id),
+      homeRoundOf32,
+      awayRoundOf32,
+      homeRoundOf32Delta: homeRoundOf32 - homeBaseline,
+      awayRoundOf32Delta: awayRoundOf32 - awayBaseline
+    };
+  });
+
+  return {
+    simulations: stakesSimulationCount,
+    homeTeamId: homeTeam.id,
+    awayTeamId: awayTeam.id,
+    scenarios
+  };
+}
+
+function scenarioLabel(key: MatchStakesScenario["key"], homeId: string, awayId: string) {
+  if (key === "homeWin") return `${homeId} win`;
+  if (key === "awayWin") return `${awayId} win`;
+  return "Draw";
+}
+
+function deltaTone(delta: number) {
+  if (delta > 0.004) return "up";
+  if (delta < -0.004) return "down";
+  return "flat";
+}
+
+function likelyScenarioScore(key: MatchStakesScenario["key"], homeTeam: AppTeam, awayTeam: AppTeam) {
+  const prediction = predictMatch(homeTeam, awayTeam, { scorelineCount: 121 });
+  const scoreline = prediction.scorelines.find((candidate) => {
+    if (key === "homeWin") return candidate.homeGoals > candidate.awayGoals;
+    if (key === "awayWin") return candidate.awayGoals > candidate.homeGoals;
+    return candidate.homeGoals === candidate.awayGoals;
+  });
+
+  if (scoreline) {
+    return {
+      homeGoals: scoreline.homeGoals,
+      awayGoals: scoreline.awayGoals
+    };
+  }
+
+  if (key === "homeWin") return { homeGoals: 1, awayGoals: 0 };
+  if (key === "awayWin") return { homeGoals: 0, awayGoals: 1 };
+  return { homeGoals: 1, awayGoals: 1 };
+}
+
+function buildForecastSeed({
+  mode,
+  simulationCount,
+  fixtureList
+}: {
+  mode: string;
+  simulationCount: number;
+  fixtureList: AppFixture[];
+}) {
+  const fixtureState = fixtureList
+    .map((fixture) =>
+      [
+        fixture.id,
+        fixture.status,
+        fixture.homeTeamId,
+        fixture.awayTeamId,
+        fixture.homeGoals ?? "",
+        fixture.awayGoals ?? ""
+      ].join(":")
+    )
+    .join("|");
+
+  return `${mode}:${simulationCount}:${fixtureState}`;
+}
+
+function groupProjectedStandings(rows: GroupProjectionRow[]) {
+  const groups = [...new Set(rows.map((row) => row.group))].sort();
+  return groups.map((group) => rows.filter((row) => row.group === group));
+}
+
+function topTwoProbability(row: GroupProjectionRow) {
+  return (row.rankProbabilities[0] ?? 0) + (row.rankProbabilities[1] ?? 0);
+}
+
+function formatDecimal(value: number) {
+  return value.toFixed(1);
+}
+
+function formatSignedDecimal(value: number) {
+  const rounded = value.toFixed(1);
+  return value > 0 ? `+${rounded}` : rounded;
 }
 
 function groupLabels(teamList: AppTeam[]) {

@@ -6,6 +6,13 @@ export function buildOutcomePresentation({ homeName, awayName, probabilities }) 
   ];
 }
 
+export function formatPercentagePointDelta(value, baseline) {
+  const delta = Math.round((value - baseline) * 100);
+  if (delta > 0) return `+${delta}pp`;
+  if (delta < 0) return `${delta}pp`;
+  return "0pp";
+}
+
 function buildOutcome(key, label, probability) {
   const percentage = probability * 100;
   return {
