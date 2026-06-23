@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   buildGroupTable,
   fixtures as fixtureSeed,
@@ -11,6 +12,12 @@ import {
 } from "@wc/tournament-engine";
 import type { AppFixture, AppTeam, TournamentData } from "@/lib/tournament-data";
 import { displayFixtureScore, shouldShowPreMatchPrediction } from "@/lib/fixture-presentation";
+import {
+  formatDataLoadedAt,
+  LIVE_REFRESH_INTERVAL_MS,
+  shouldShowDataLoadedAt,
+  shouldRefreshLiveData
+} from "@/lib/live-refresh";
 import { buildOutcomePresentation } from "@/lib/prediction-presentation";
 import {
   detectViewerTimeZone,
@@ -131,9 +138,11 @@ const bracketRoundMeta: Record<string, { interval: number; offset: number }> = {
 const roundOrder = ["Round of 32", "Round of 16", "Quarterfinal", "Semifinal", "Final"];
 
 export function MatchCentreApp({ initialData }: { initialData?: TournamentData }) {
+  const router = useRouter();
   const teams = initialData?.teams?.length ? initialData.teams : fallbackTeams;
   const fixtures = initialData?.fixtures?.length ? initialData.fixtures : fallbackFixtures;
   const dataSource = initialData?.source ?? "seed";
+  const fetchedAt = initialData?.fetchedAt;
   const simulationFixtures = useMemo(
     () => fixtures.filter(isGroupFixture),
     [fixtures]
@@ -144,6 +153,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
   >;
   const [activeTab, setActiveTab] = useState<TabName>("fixtures");
   const [viewerTimeZone, setViewerTimeZone] = useState<string>("UTC");
+  const [viewerTimeZoneDetected, setViewerTimeZoneDetected] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(() => formatKickoffDateKey(fixtures[0].kickoff));
   const [simulationCount, setSimulationCount] = useState(1000);
   const [mode, setMode] = useState<"snapshot" | "pre">("snapshot");
@@ -160,11 +170,28 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
 
   useEffect(() => {
     setViewerTimeZone(detectViewerTimeZone());
+    setViewerTimeZoneDetected(true);
   }, []);
 
   useEffect(() => {
     window.history.replaceState(null, "", `#${activeTab}`);
   }, [activeTab]);
+
+  useEffect(() => {
+    function refreshIfVisible() {
+      if (shouldRefreshLiveData({ dataSource, visibilityState: document.visibilityState })) {
+        router.refresh();
+      }
+    }
+
+    const intervalId = window.setInterval(refreshIfVisible, LIVE_REFRESH_INTERVAL_MS);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [dataSource, router]);
 
   useEffect(() => {
     runForecast();
@@ -270,6 +297,9 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                   <h2>Scores & Fixtures</h2>
                   <span className={`data-source ${dataSource}`}>
                     {dataSource === "supabase" ? "Live database" : "Demo seed data"}
+                    {shouldShowDataLoadedAt({ fetchedAt, viewerTimeZoneDetected })
+                      ? ` · Loaded ${formatDataLoadedAt(fetchedAt, viewerTimeZone)}`
+                      : ""}
                   </span>
                 </div>
                 <div className="filter-pills" aria-label="Match day filter">

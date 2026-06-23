@@ -119,7 +119,22 @@ The command polls a ±1-day window around the current date, loads mappings, and 
 npm run ingestion:sync-espn-live -- --apply
 ```
 
-The private host scheduler owns the interval: invoke this command every 10-15 minutes, at all times (not just during match windows), since ESPN has no daily quota to conserve. There is no `quotaState` field — that concept was specific to API-Football's 100-request budget and does not apply here.
+For the free production path, prefer an external HTTP scheduler such as cron-job.org over Vercel Cron on Hobby. Configure it to call:
+
+```text
+GET https://<production-domain>/api/cron/sync-espn
+Authorization: Bearer <CRON_SECRET>
+```
+
+Use a 5-minute interval. The route itself is the smart gate: it only runs ESPN + Supabase writes from 30 minutes before a canonical fixture kickoff until 3 hours after kickoff. Outside that window it returns `mode: "skip"` with the next sync window and does not call ESPN or Supabase. This keeps the scheduler simple and free while avoiding unnecessary provider and database work between matches.
+
+Set these production environment variables on the web deployment:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `CRON_SECRET`
+
+`SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` must stay server-only; never expose either as `NEXT_PUBLIC_...`. GitHub Actions remains available as a manual fallback, but scheduled GitHub workflows are not reliable enough to be the only near-live trigger and should not duplicate the external 5-minute scheduler.
 
 To cross-check canonical fixtures against the official football-data.org source without writing anything:
 
