@@ -1,3 +1,5 @@
+const UNRANKED = Number.MAX_SAFE_INTEGER;
+
 export function buildGroupTable(teams, matches) {
   const rows = new Map(
     teams.map((team) => [
@@ -13,7 +15,9 @@ export function buildGroupTable(teams, matches) {
         goalsAgainst: 0,
         goalDifference: 0,
         points: 0,
-        rating: team.rating
+        conductScore: 0,
+        rating: team.rating,
+        fifaRanking: team.fifaRanking
       }
     ])
   );
@@ -47,6 +51,12 @@ export function buildGroupTable(teams, matches) {
       home.points += 1;
       away.points += 1;
     }
+
+    for (const card of match.cards ?? []) {
+      const row = rows.get(card.teamId);
+      if (!row) continue;
+      row.conductScore += card.eventType === "red_card" ? -4 : -1;
+    }
   }
 
   for (const row of rows.values()) {
@@ -56,18 +66,63 @@ export function buildGroupTable(teams, matches) {
   return [...rows.values()];
 }
 
-export function compareRows(a, b) {
+export function compareGroupStageRows(a, b) {
   return (
     b.points - a.points ||
     b.goalDifference - a.goalDifference ||
     b.goalsFor - a.goalsFor ||
-    b.rating - a.rating ||
+    (b.conductScore ?? 0) - (a.conductScore ?? 0) ||
+    (a.fifaRanking ?? UNRANKED) - (b.fifaRanking ?? UNRANKED) ||
     a.teamId.localeCompare(b.teamId)
   );
 }
 
-export function rankGroup(rows) {
-  return [...rows].sort(compareRows);
+export function rankGroup(rows, matches = []) {
+  return clusterByPoints(rows).flatMap((cluster) => resolveCluster(cluster, matches));
+}
+
+function clusterByPoints(rows) {
+  const sorted = [...rows].sort((a, b) => b.points - a.points);
+  const clusters = [];
+
+  for (const row of sorted) {
+    const last = clusters.at(-1);
+    if (last && last[0].points === row.points) {
+      last.push(row);
+    } else {
+      clusters.push([row]);
+    }
+  }
+
+  return clusters;
+}
+
+function resolveCluster(cluster, matches) {
+  if (cluster.length === 1) {
+    return cluster;
+  }
+
+  const teamIds = new Set(cluster.map((row) => row.teamId));
+  const headToHeadMatches = matches.filter(
+    (match) => teamIds.has(match.homeTeamId) && teamIds.has(match.awayTeamId)
+  );
+  const headToHeadTable = buildGroupTable(
+    cluster.map((row) => ({ id: row.teamId, group: row.group, rating: row.rating })),
+    headToHeadMatches
+  );
+  const headToHeadByTeamId = new Map(headToHeadTable.map((row) => [row.teamId, row]));
+
+  return [...cluster].sort((a, b) => {
+    const aHeadToHead = headToHeadByTeamId.get(a.teamId);
+    const bHeadToHead = headToHeadByTeamId.get(b.teamId);
+
+    return (
+      bHeadToHead.points - aHeadToHead.points ||
+      bHeadToHead.goalDifference - aHeadToHead.goalDifference ||
+      bHeadToHead.goalsFor - aHeadToHead.goalsFor ||
+      compareGroupStageRows(a, b)
+    );
+  });
 }
 
 export function rankAllGroups(teamList, matches) {
@@ -76,6 +131,6 @@ export function rankAllGroups(teamList, matches) {
   return groups.map((group) => {
     const groupTeams = teamList.filter((team) => team.group === group);
     const groupMatches = matches.filter((match) => match.group === group);
-    return rankGroup(buildGroupTable(groupTeams, groupMatches));
+    return rankGroup(buildGroupTable(groupTeams, groupMatches), groupMatches);
   });
 }

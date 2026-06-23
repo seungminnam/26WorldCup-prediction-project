@@ -54,9 +54,8 @@ See [docs/git-workflow.md](docs/git-workflow.md) for the branch strategy, CI req
 
 - ESPN is treated as an evaluation feed rather than a betting-grade real-time service.
 - The current prediction model is a transparent rating and Poisson baseline, not a trained production model.
-- The group ranking engine uses MVP tie-breakers: points, goal difference, goals for, then rating.
+- The group ranking engine implements FIFA's published tiebreaker criteria: head-to-head points/goal-difference/goals-scored among tied teams, then all-matches goal difference, goals scored, team conduct score, and FIFA World Ranking. FIFA World Ranking is a one-time pre-tournament snapshot, not live-synced. Card-based conduct scoring cannot distinguish a second-yellow dismissal from a straight red card with ESPN's data, so it is scored as the sum of both deductions.
 - The forecast is not yet recomputed automatically after every result update.
-- The official FIFA Annex C third-place assignment table is not implemented yet.
 - Production live writes are flowing from ESPN; a shadow test through a full scheduled-to-final match lifecycle and knockout-stage penalty-shootout verification are still pending before flipping the provider from `evaluation` to `active`.
 
 ## ESPN Ingestion

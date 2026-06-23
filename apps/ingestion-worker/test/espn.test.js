@@ -42,6 +42,15 @@ test("normalizes a finished ESPN fixture with goal events", async () => {
         eventType: "goal"
       },
       {
+        providerEventId: "760415:774:981:94:256691",
+        providerTeamId: "774",
+        playerName: "Some Defender",
+        assistPlayerName: null,
+        minute: 17,
+        stoppageMinute: null,
+        eventType: "yellow_card"
+      },
+      {
         providerEventId: "760415:203:4023:137:167060",
         providerTeamId: "203",
         playerName: "Santiago Giménez",
@@ -52,6 +61,52 @@ test("normalizes a finished ESPN fixture with goal events", async () => {
       }
     ]
   });
+});
+
+test("classifies a red card event distinctly from a yellow card", () => {
+  const event = {
+    id: "999000",
+    date: "2026-06-20T18:00Z",
+    season: { year: 2026 },
+    competitions: [
+      {
+        venue: { id: "1700", fullName: "Sample Arena" },
+        altGameNote: "FIFA World Cup, Group A",
+        status: { clock: 5400, type: { name: "STATUS_FULL_TIME" } },
+        competitors: [
+          { homeAway: "home", score: "1", team: { id: "203", displayName: "Mexico", abbreviation: "MEX" } },
+          { homeAway: "away", score: "0", team: { id: "774", displayName: "South Africa", abbreviation: "RSA" } }
+        ],
+        details: [
+          {
+            type: { id: "93", text: "Red Card" },
+            clock: { value: 3000, displayValue: "50'" },
+            team: { id: "774" },
+            scoringPlay: false,
+            redCard: true,
+            yellowCard: false,
+            penaltyKick: false,
+            ownGoal: false,
+            athletesInvolved: [{ id: "300001", displayName: "Some Striker" }]
+          }
+        ]
+      }
+    ]
+  };
+
+  const result = normalizeEspnFixture(event);
+
+  assert.deepEqual(result.events, [
+    {
+      providerEventId: "999000:774:3000:93:300001",
+      providerTeamId: "774",
+      playerName: "Some Striker",
+      assistPlayerName: null,
+      minute: 50,
+      stoppageMinute: null,
+      eventType: "red_card"
+    }
+  ]);
 });
 
 test("normalizes a scheduled fixture with null scores and no events", async () => {

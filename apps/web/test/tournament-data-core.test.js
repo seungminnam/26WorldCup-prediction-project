@@ -57,3 +57,37 @@ test("maps shootout scores for completed knockout fixtures", () => {
   assert.equal(fixture.homePenalties, 4);
   assert.equal(fixture.awayPenalties, 3);
 });
+
+test("separates card events from goal events into a distinct cards array", () => {
+  const [fixture] = mapFixtureRows(
+    [
+      {
+        id: "A-1",
+        match_number: 1,
+        group_code: "A",
+        stage: "group",
+        kickoff_at: "2026-06-11T19:00:00Z",
+        status: "final",
+        home_goals: 2,
+        away_goals: 0,
+        venue_name: "Estadio Banorte",
+        venue_city: "Mexico City",
+        home_team_id: "MEX",
+        away_team_id: "RSA",
+        home_slot: "MEX",
+        away_slot: "RSA"
+      }
+    ],
+    [
+      { fixture_id: "A-1", team_id: "MEX", player_name: "Julián Quiñones", minute: 9, event_type: "goal" },
+      { fixture_id: "A-1", team_id: "RSA", player_name: "Some Defender", minute: 17, event_type: "yellow_card" },
+      { fixture_id: "A-1", team_id: "RSA", player_name: "Some Striker", minute: 80, event_type: "red_card" }
+    ]
+  );
+
+  assert.deepEqual(fixture.scorers, [{ teamId: "MEX", player: "Julián Quiñones", minute: 9 }]);
+  assert.deepEqual(fixture.cards, [
+    { teamId: "RSA", player: "Some Defender", minute: 17, eventType: "yellow_card" },
+    { teamId: "RSA", player: "Some Striker", minute: 80, eventType: "red_card" }
+  ]);
+});

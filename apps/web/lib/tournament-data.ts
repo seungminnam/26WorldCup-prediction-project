@@ -7,6 +7,7 @@ export type AppTeam = {
   name: string;
   group: string;
   rating: number;
+  fifaRanking: number;
   flagEmoji?: string;
 };
 
@@ -28,6 +29,7 @@ export type AppFixture = {
   homePenalties?: number;
   awayPenalties?: number;
   scorers: Array<{ teamId: string; player: string; minute: number }>;
+  cards: Array<{ teamId: string; player: string; minute: number; eventType: string }>;
 };
 
 export type TournamentData = {
@@ -41,6 +43,7 @@ type TeamRow = {
   name: string;
   group_code: string;
   rating: number | string;
+  fifa_ranking: number;
   flag_emoji: string | null;
 };
 
@@ -77,7 +80,8 @@ const fallbackData: TournamentData = {
     ...fixture,
     venue: fixture.stadium,
     hostCity: fixture.venue,
-    scorers: [...fixture.scorers]
+    scorers: [...fixture.scorers],
+    cards: []
   })) as AppFixture[],
   source: "seed"
 };
@@ -98,14 +102,14 @@ export async function getTournamentData(): Promise<TournamentData> {
   });
 
   const [teamsResult, fixturesResult, eventsResult] = await Promise.all([
-    supabase.from("teams").select("id,name,group_code,rating,flag_emoji").order("group_code").order("id"),
+    supabase.from("teams").select("id,name,group_code,rating,fifa_ranking,flag_emoji").order("group_code").order("id"),
     supabase.from("fixture_cards").select(
       "id,match_number,group_code,stage,kickoff_at,status,home_goals,away_goals,home_penalties,away_penalties,venue_name,venue_city,home_team_id,away_team_id,home_slot,away_slot"
     ).order("kickoff_at"),
     supabase
       .from("match_events")
       .select("fixture_id,team_id,player_name,minute,event_type")
-      .in("event_type", ["goal", "own_goal", "penalty_goal"])
+      .in("event_type", ["goal", "own_goal", "penalty_goal", "yellow_card", "red_card"])
       .order("minute")
   ]);
 
@@ -136,6 +140,7 @@ function mapTeams(rows: TeamRow[]): AppTeam[] {
     name: row.name,
     group: row.group_code,
     rating: Number(row.rating),
+    fifaRanking: Number(row.fifa_ranking),
     flagEmoji: row.flag_emoji ?? undefined
   }));
 }

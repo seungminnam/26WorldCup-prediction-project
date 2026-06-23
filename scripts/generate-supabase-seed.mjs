@@ -134,11 +134,11 @@ function teamsSql() {
   const values = teams.map((team) =>
     `(${literal(team.id)}, ${literal(team.id)}, ${literal(team.name)}, ${literal(team.name)}, ${literal(
       team.id
-    )}, ${literal(team.id)}, ${literal(team.group)}, ${team.rating}, ${literal(flagEmoji[team.id] ?? null)})`
+    )}, ${literal(team.id)}, ${literal(team.group)}, ${team.rating}, ${team.fifaRanking}, ${literal(flagEmoji[team.id] ?? null)})`
   );
 
   return [
-    "insert into public.teams (id, fifa_code, name, official_name, short_name, country_code, group_code, rating, flag_emoji)",
+    "insert into public.teams (id, fifa_code, name, official_name, short_name, country_code, group_code, rating, fifa_ranking, flag_emoji)",
     `values\n  ${values.join(",\n  ")}`,
     "on conflict (id) do update set",
     "  fifa_code = excluded.fifa_code,",
@@ -148,6 +148,7 @@ function teamsSql() {
     "  country_code = excluded.country_code,",
     "  group_code = excluded.group_code,",
     "  rating = excluded.rating,",
+    "  fifa_ranking = excluded.fifa_ranking,",
     "  flag_emoji = excluded.flag_emoji;"
   ].join("\n");
 }

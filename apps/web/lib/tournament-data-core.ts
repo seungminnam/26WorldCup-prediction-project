@@ -1,14 +1,30 @@
 export function mapFixtureRows(rows: any[], eventRows: any[]) {
-  const eventsByFixture = eventRows.reduce<Record<string, any[]>>((accumulator, row) => {
-    if (!row.team_id) return accumulator;
-    accumulator[row.fixture_id] ??= [];
-    accumulator[row.fixture_id].push({
-      teamId: row.team_id,
-      player: row.player_name,
-      minute: row.minute
-    });
-    return accumulator;
-  }, {});
+  const eventsByFixture = eventRows
+    .filter((row) => row.event_type === "goal" || row.event_type === "own_goal" || row.event_type === "penalty_goal")
+    .reduce<Record<string, any[]>>((accumulator, row) => {
+      if (!row.team_id) return accumulator;
+      accumulator[row.fixture_id] ??= [];
+      accumulator[row.fixture_id].push({
+        teamId: row.team_id,
+        player: row.player_name,
+        minute: row.minute
+      });
+      return accumulator;
+    }, {});
+
+  const cardsByFixture = eventRows
+    .filter((row) => row.event_type === "yellow_card" || row.event_type === "red_card")
+    .reduce<Record<string, any[]>>((accumulator, row) => {
+      if (!row.team_id) return accumulator;
+      accumulator[row.fixture_id] ??= [];
+      accumulator[row.fixture_id].push({
+        teamId: row.team_id,
+        player: row.player_name,
+        minute: row.minute,
+        eventType: row.event_type
+      });
+      return accumulator;
+    }, {});
 
   return rows.map((row) => ({
     id: row.id,
@@ -27,7 +43,8 @@ export function mapFixtureRows(rows: any[], eventRows: any[]) {
     ...(typeof row.away_goals === "number" ? { awayGoals: row.away_goals } : {}),
     ...(typeof row.home_penalties === "number" ? { homePenalties: row.home_penalties } : {}),
     ...(typeof row.away_penalties === "number" ? { awayPenalties: row.away_penalties } : {}),
-    scorers: eventsByFixture[row.id] ?? []
+    scorers: eventsByFixture[row.id] ?? [],
+    cards: cardsByFixture[row.id] ?? []
   }));
 }
 
