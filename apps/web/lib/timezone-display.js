@@ -2,13 +2,21 @@ export function detectViewerTimeZone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
-export function formatKickoffDateKey(kickoff) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "UTC",
+export function formatKickoffDateKey(kickoff, timeZone = "UTC") {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit"
-  }).format(new Date(kickoff));
+  }).formatToParts(new Date(kickoff));
+
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  );
+
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 export function formatKickoffShortDate(kickoff, timeZone) {
@@ -27,4 +35,22 @@ export function formatKickoffTime(kickoff, timeZone) {
     minute: "2-digit",
     timeZoneName: "short"
   }).format(new Date(kickoff));
+}
+
+export function selectDefaultFixtureDate(fixtures, timeZone, now = new Date()) {
+  const dateKeys = [...new Set(fixtures.map((fixture) => formatKickoffDateKey(fixture.kickoff, timeZone)))].sort();
+  const todayKey = formatKickoffDateKey(now, timeZone);
+
+  if (dateKeys.includes(todayKey)) {
+    return todayKey;
+  }
+
+  const nextFixture = fixtures
+    .filter((fixture) => new Date(fixture.kickoff).getTime() >= now.getTime())
+    .sort((left, right) => new Date(left.kickoff).getTime() - new Date(right.kickoff).getTime())[0];
+  if (nextFixture) {
+    return formatKickoffDateKey(nextFixture.kickoff, timeZone);
+  }
+
+  return dateKeys[0] ?? todayKey;
 }

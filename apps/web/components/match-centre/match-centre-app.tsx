@@ -23,7 +23,8 @@ import {
   detectViewerTimeZone,
   formatKickoffDateKey,
   formatKickoffShortDate,
-  formatKickoffTime
+  formatKickoffTime,
+  selectDefaultFixtureDate
 } from "@/lib/timezone-display";
 
 type TabName = "fixtures" | "standings" | "bracket" | "forecast";
@@ -154,7 +155,8 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
   const [activeTab, setActiveTab] = useState<TabName>("fixtures");
   const [viewerTimeZone, setViewerTimeZone] = useState<string>("UTC");
   const [viewerTimeZoneDetected, setViewerTimeZoneDetected] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>(() => formatKickoffDateKey(fixtures[0].kickoff));
+  const [selectedDate, setSelectedDate] = useState<string>(() => selectDefaultFixtureDate(fixtures, "UTC"));
+  const [hasUserSelectedDate, setHasUserSelectedDate] = useState(false);
   const [simulationCount, setSimulationCount] = useState(1000);
   const [mode, setMode] = useState<"snapshot" | "pre">("snapshot");
   const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>();
@@ -172,6 +174,19 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     setViewerTimeZone(detectViewerTimeZone());
     setViewerTimeZoneDetected(true);
   }, []);
+
+  useEffect(() => {
+    if (!viewerTimeZoneDetected) return;
+
+    const dateKeys = new Set(fixtures.map((match) => formatKickoffDateKey(match.kickoff, viewerTimeZone)));
+    setSelectedDate((current) => {
+      if (hasUserSelectedDate && dateKeys.has(current)) {
+        return current;
+      }
+
+      return selectDefaultFixtureDate(fixtures, viewerTimeZone);
+    });
+  }, [fixtures, hasUserSelectedDate, viewerTimeZone, viewerTimeZoneDetected]);
 
   useEffect(() => {
     window.history.replaceState(null, "", `#${activeTab}`);
@@ -212,14 +227,18 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
   const visibleMatches = useMemo(
     () =>
       fixtures
-        .filter((match) => formatKickoffDateKey(match.kickoff) === selectedDate)
+        .filter((match) => formatKickoffDateKey(match.kickoff, viewerTimeZone) === selectedDate)
         .sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()),
-    [selectedDate]
+    [fixtures, selectedDate, viewerTimeZone]
   );
 
   const dateOptions = useMemo(
-    () => [...new Set(fixtures.map((match) => formatKickoffDateKey(match.kickoff)))].sort(),
-    []
+    () => [...new Set(fixtures.map((match) => formatKickoffDateKey(match.kickoff, viewerTimeZone)))].sort(),
+    [fixtures, viewerTimeZone]
+  );
+  const todayDateKey = useMemo(
+    () => formatKickoffDateKey(new Date(), viewerTimeZone),
+    [viewerTimeZone]
   );
   const currentStandings = useMemo(
     () => buildStandings(completedFixtures(fixtures), teams),
@@ -304,31 +323,44 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                 </div>
                 <div className="filter-pills" aria-label="Match day filter">
                   {dateOptions.map((day) => {
-                    const dayMatches = fixtures.filter((match) => formatKickoffDateKey(match.kickoff) === day);
+                    const dayMatches = fixtures.filter(
+                      (match) => formatKickoffDateKey(match.kickoff, viewerTimeZone) === day
+                    );
+                    const isToday = viewerTimeZoneDetected && day === todayDateKey;
                     return (
                       <button
                         key={day}
-                        className={`day-pill ${selectedDate === day ? "active" : ""}`}
+                        className={`day-pill ${selectedDate === day ? "active" : ""} ${isToday ? "today" : ""}`}
                         type="button"
-                        onClick={() => setSelectedDate(day)}
+                        onClick={() => {
+                          setHasUserSelectedDate(true);
+                          setSelectedDate(day);
+                        }}
                       >
                         <span>{dayMatches.length} matches</span>
-                        <strong>{formatKickoffShortDate(dayMatches[0].kickoff, viewerTimeZone)}</strong>
+                        <strong>
+                          {formatKickoffShortDate(dayMatches[0].kickoff, viewerTimeZone)}
+                          {isToday ? " · Today" : ""}
+                        </strong>
                       </button>
                     );
                   })}
                 </div>
               </div>
               <div className="match-list" aria-live="polite">
-                <div className="date-divider">
-                  {formatKickoffShortDate(visibleMatches[0].kickoff, viewerTimeZone)}
-                </div>
+                {visibleMatches[0] && (
+                  <div className={`date-divider ${selectedDate === todayDateKey ? "today" : ""}`}>
+                    {formatKickoffShortDate(visibleMatches[0].kickoff, viewerTimeZone)}
+                    {viewerTimeZoneDetected && selectedDate === todayDateKey ? " · Today" : ""}
+                  </div>
+                )}
                 {visibleMatches.map((match) => (
                   <FixtureCard
                     key={match.id}
                     match={match}
                     teamsById={teamsById}
                     viewerTimeZone={viewerTimeZone}
+                    isToday={formatKickoffDateKey(match.kickoff, viewerTimeZone) === todayDateKey}
                   />
                 ))}
               </div>
@@ -574,11 +606,13 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
 function FixtureCard({
   match,
   teamsById,
-  viewerTimeZone
+  viewerTimeZone,
+  isToday
 }: {
   match: AppFixture;
   teamsById: Record<string, AppTeam>;
   viewerTimeZone: string;
+  isToday: boolean;
 }) {
   const homeTeam = match.homeTeamId ? teamsById[match.homeTeamId] : undefined;
   const awayTeam = match.awayTeamId ? teamsById[match.awayTeamId] : undefined;
@@ -597,7 +631,7 @@ function FixtureCard({
     : [];
 
   return (
-    <article className="fixture-card">
+    <article className={`fixture-card ${isToday ? "today" : ""}`}>
       <div className="match-meta">
         <span className={`status ${match.status === "FT" ? "ft" : ""}`}>{match.status as MatchStatus}</span>
         <span>Match {match.matchNumber}</span>
