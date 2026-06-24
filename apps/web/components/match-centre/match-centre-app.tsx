@@ -946,8 +946,8 @@ function ProjectedStandingTable({
                   {teamFlag(row.teamId, teamsById)} {teamName(row.teamId, teamsById)}
                 </span>
               </td>
-              <td>{formatDecimal(row.averagePoints)}</td>
-              <td>{formatSignedDecimal(row.averageGoalDifference)}</td>
+              <td>{formatRounded(row.averagePoints)}</td>
+              <td>{formatSignedRounded(row.averageGoalDifference)}</td>
               <td>{formatPercent(topTwoProbability(row))}</td>
               <td>
                 <strong>{formatPercent(row.roundOf32)}</strong>
@@ -1158,13 +1158,13 @@ function topTwoProbability(row: GroupProjectionRow) {
   return (row.rankProbabilities[0] ?? 0) + (row.rankProbabilities[1] ?? 0);
 }
 
-function formatDecimal(value: number) {
-  return value.toFixed(1);
+function formatRounded(value: number) {
+  return String(Math.round(value));
 }
 
-function formatSignedDecimal(value: number) {
-  const rounded = value.toFixed(1);
-  return value > 0 ? `+${rounded}` : rounded;
+function formatSignedRounded(value: number) {
+  const rounded = Math.round(value);
+  return rounded > 0 ? `+${rounded}` : String(rounded);
 }
 
 function groupLabels(teamList: AppTeam[]) {
