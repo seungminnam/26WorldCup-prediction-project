@@ -20,6 +20,10 @@ export function expectedGoals(
   defendingTeam,
   { applyHomeAdvantage = false, strength = teamStrength, advantage = modelConstants.homeAdvantage } = {}
 ) {
+  // A value placed directly on the team object wins over the strength table lookup. No real
+  // team data ever carries .attack/.defense (only synthetic test fixtures, e.g. bracket.test.js's
+  // placeholder teams, which don't exist in the real 48-team table); this exists purely so tests
+  // can stub strength without needing a real, recognized team id.
   const attack = attackingTeam.attack ?? strength[attackingTeam.id]?.attack;
   const defense = defendingTeam.defense ?? strength[defendingTeam.id]?.defense;
   if (!Number.isFinite(attack) || !Number.isFinite(defense)) {

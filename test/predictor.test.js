@@ -36,6 +36,24 @@ test("expectedGoals throws for a team missing from the strength table instead of
   assert.throws(() => expectedGoals({ id: "TEST_HOME" }, { id: "UNKNOWN" }, { strength }), TypeError);
 });
 
+test("expectedGoals prefers attack/defense found directly on the team object over the strength table", () => {
+  const home = { id: "TEST_HOME", attack: 5 };
+  const away = { id: "TEST_AWAY", defense: 5 };
+
+  const lambda = expectedGoals(home, away, { strength, advantage, applyHomeAdvantage: false });
+
+  assert.equal(lambda, Math.exp(5 - 5), "should use the object's own attack/defense (5, 5), not the strength table's (0.4, 0.3)");
+});
+
+test("expectedGoals falls back to the strength table when the team object has no attack/defense of its own", () => {
+  const home = { id: "TEST_HOME" };
+  const away = { id: "TEST_AWAY" };
+
+  const lambda = expectedGoals(home, away, { strength, advantage, applyHomeAdvantage: false });
+
+  assert.equal(lambda, Math.exp(strength.TEST_HOME.attack - strength.TEST_AWAY.defense));
+});
+
 test("isHostNationFixture is true only for Mexico, Canada, and the United States", () => {
   assert.equal(isHostNationFixture("MEX"), true);
   assert.equal(isHostNationFixture("CAN"), true);
