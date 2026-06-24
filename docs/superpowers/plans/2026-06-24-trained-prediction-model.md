@@ -13,7 +13,8 @@
 - `rating` is untouched — it remains the tiebreaker sort key in `ranking.js`/`thirdPlace.js`/`simulator.js`. Only score/outcome *prediction* changes.
 - Training data excludes: rows where `tournament == "Friendly"`, rows with `NA` scores, and every row where `tournament == "FIFA World Cup"` and `date >= "2026-01-01"` (the in-progress 2026 tournament itself — training must never see the matches it's about to predict, including the 48 already-played 2026 group matches already present in the dataset).
 - Home advantage applies only to the literal home team's lambda, never the away team's, regardless of which argument order a function is called with.
-- `ξ = 0.0065` per day (fixed, not tuned) for the recency-decay weight `exp(-ξ × daysSinceMatch)`.
+- `ξ = 0.001` per day (fixed, not tuned) for the recency-decay weight `exp(-ξ × daysSinceMatch)` — chosen and empirically verified during planning (half-life ≈ 693 days ≈ 1.9 years; the original draft's `0.0065` figure was an arithmetic error inconsistent with its own "multi-year half-life" framing — `ln(2)/0.0065 ≈ 107 days`, not multi-year — caught and corrected by Task 3's implementer before this plan was finalized).
+- Gradients are averaged (divided by the sum of match weights), not summed, before applying the learning-rate step — raw summed gradients over a full historical dataset (tens of thousands of matches) diverge regardless of learning rate; averaging keeps the optimizer's behavior independent of dataset size.
 - Training is a one-time, manually-invoked script — no scheduled job.
 
 ---
@@ -426,7 +427,7 @@ tauGradWrtRho(x, y, λh, λa, rho):
   otherwise -> 0
 ```
 
-Then, for weight `w = exp(-ξ × daysBetween(match.date, referenceDate) / 365)`:
+Then, for weight `w = exp(-ξ × daysBetween(match.date, referenceDate))` (days, not years — no `/365`; see the Global Constraints note on why an earlier draft of this formula was wrong):
 
 ```
 grad[attack[h]]      += w × gradWrtLambdaHome × λh
@@ -437,7 +438,7 @@ grad[homeAdvantage]  += w × gradWrtLambdaHome × λh   (only when !isNeutralVen
 grad[rho]            += w × tauGradWrtRho(x, y, λh, λa, rho)
 ```
 
-After accumulating over all matches, subtract the L2 penalty gradient `2 × l2 × attack[i]` and `2 × l2 × defense[i]` from each team's accumulated gradient (homeAdvantage and rho are not regularized — they're single global scalars, not a large family of per-team parameters that need an identifiability constraint). Take a gradient-ascent step (`param += learningRate × grad[param]`) and repeat for `iterations` rounds.
+After accumulating over all matches, **divide every accumulated gradient by `totalWeight` (the sum of every match's `w`)** before anything else — this turns the raw sum into a weighted average, which is what keeps the optimizer stable independent of how many matches are in the dataset (the per-match gradient terms above are O(1) in magnitude; summed raw over tens of thousands of matches, the learning rate would need to shrink by a corresponding factor, and `iterations`/`learningRate` chosen for a small dataset would silently diverge to `NaN` on the real one). Then subtract the L2 penalty gradient `2 × l2 × attack[i]` and `2 × l2 × defense[i]` from each team's *averaged* gradient (homeAdvantage and rho are not regularized — they're single global scalars, not a large family of per-team parameters that need an identifiability constraint). Take a gradient-ascent step (`param += learningRate × averagedGrad[param]`) and repeat for `iterations` rounds.
 
 - [ ] **Step 1: Write the failing parameter-recovery test**
 
@@ -494,7 +495,7 @@ test("fitDixonColes recovers known attack/defense/homeAdvantage/rho from synthet
   const matches = [];
   let dayOffset = 0;
 
-  for (let round = 0; round < 60; round += 1) {
+  for (let round = 0; round < 150; round += 1) {
     for (const home of teamIds) {
       for (const away of teamIds) {
         if (home === away) continue;
@@ -521,9 +522,9 @@ test("fitDixonColes recovers known attack/defense/homeAdvantage/rho from synthet
   const referenceDate = matches[matches.length - 1].date;
   const fit = fitDixonColes(matches, teamIds, {
     iterations: 400,
-    learningRate: 0.02,
+    learningRate: 0.3,
     l2: 0.001,
-    xi: 0.0065,
+    xi: 0.001,
     referenceDate
   });
 
@@ -549,9 +550,9 @@ test("fitDixonColes weights recent matches more than old ones", () => {
 
   const recentHeavy = fitDixonColes([oldMatch, recentMatch, recentMatch, recentMatch], teamIds, {
     iterations: 200,
-    learningRate: 0.05,
+    learningRate: 0.3,
     l2: 0.001,
-    xi: 0.0065,
+    xi: 0.001,
     referenceDate
   });
 
@@ -598,7 +599,7 @@ function tauGradients(homeGoals, awayGoals, lambdaHome, lambdaAway, rho) {
   return { wrtLambdaHome: 0, wrtLambdaAway: 0, wrtRho: 0 };
 }
 
-export function fitDixonColes(matches, teamIds, { iterations = 300, learningRate = 0.02, l2 = 0.001, xi = 0.0065, referenceDate } = {}) {
+export function fitDixonColes(matches, teamIds, { iterations = 300, learningRate = 0.3, l2 = 0.001, xi = 0.001, referenceDate } = {}) {
   const attack = new Map(teamIds.map((id) => [id, 0]));
   const defense = new Map(teamIds.map((id) => [id, 0]));
   let homeAdvantage = 0.2;
@@ -606,8 +607,9 @@ export function fitDixonColes(matches, teamIds, { iterations = 300, learningRate
 
   const weighted = matches.map((match) => ({
     ...match,
-    weight: Math.exp((-xi * (referenceDate.getTime() - match.date.getTime())) / MILLISECONDS_PER_DAY / 1)
+    weight: Math.exp((-xi * (referenceDate.getTime() - match.date.getTime())) / MILLISECONDS_PER_DAY)
   }));
+  const totalWeight = weighted.reduce((sum, match) => sum + match.weight, 0);
 
   for (let iteration = 0; iteration < iterations; iteration += 1) {
     const attackGrad = new Map(teamIds.map((id) => [id, 0]));
@@ -635,16 +637,20 @@ export function fitDixonColes(matches, teamIds, { iterations = 300, learningRate
     }
 
     for (const id of teamIds) {
-      attack.set(id, attack.get(id) + learningRate * (attackGrad.get(id) - 2 * l2 * attack.get(id)));
-      defense.set(id, defense.get(id) + learningRate * (defenseGrad.get(id) - 2 * l2 * defense.get(id)));
+      const meanAttackGrad = attackGrad.get(id) / totalWeight;
+      const meanDefenseGrad = defenseGrad.get(id) / totalWeight;
+      attack.set(id, attack.get(id) + learningRate * (meanAttackGrad - 2 * l2 * attack.get(id)));
+      defense.set(id, defense.get(id) + learningRate * (meanDefenseGrad - 2 * l2 * defense.get(id)));
     }
-    homeAdvantage += learningRate * homeAdvantageGrad;
-    rho += learningRate * rhoGrad;
+    homeAdvantage += learningRate * (homeAdvantageGrad / totalWeight);
+    rho += learningRate * (rhoGrad / totalWeight);
   }
 
   return { attack, defense, homeAdvantage, rho };
 }
 ```
+
+**Why this differs from a naive implementation of the gradient formulas above:** the per-match gradient terms are summed first (`attackGrad`, `defenseGrad`, `homeAdvantageGrad`, `rhoGrad`), then divided by `totalWeight` before the learning-rate step — averaging, not summing. A raw, unnormalized sum over a large dataset (the real historical dataset Task 4 trains on has 31,017 matches) produces a gradient whose magnitude scales with dataset size, so any fixed learning rate that's stable for a small dataset diverges to `NaN` on a large one. Dividing by `totalWeight` keeps the step size meaningful regardless of how many matches are in `matches`.
 
 - [ ] **Step 4: Run the tests and verify GREEN**
 
@@ -705,11 +711,14 @@ function main() {
   console.log("Fitting Dixon-Coles parameters (this takes a few minutes)...");
   const fit = fitDixonColes(matches, teamIds, {
     iterations: 400,
-    learningRate: 0.01,
+    learningRate: 0.3,
     l2: 0.001,
-    xi: 0.0065,
+    xi: 0.001,
     referenceDate
   });
+  if ([...fit.attack.values(), fit.homeAdvantage, fit.rho].some((value) => !Number.isFinite(value))) {
+    throw new Error("Fit diverged to NaN/Infinity on the real dataset. Task 3's gradient-averaging fix was verified stable on a 1,800-match synthetic dataset, not yet on the full ~31,000-match real one — if this fires, try halving learningRate before assuming a deeper bug.");
+  }
 
   const teamStrength = {};
   for (const id of WORLD_CUP_2026_TEAM_IDS) {
@@ -1182,9 +1191,9 @@ function main() {
   const trainTeamIds = new Set(trainMatches.flatMap((match) => [match.homeTeamId, match.awayTeamId]));
   const fit = fitDixonColes(trainMatches, [...trainTeamIds], {
     iterations: 400,
-    learningRate: 0.01,
+    learningRate: 0.3,
     l2: 0.001,
-    xi: 0.0065,
+    xi: 0.001,
     referenceDate: HOLDOUT_CUTOFF
   });
 
