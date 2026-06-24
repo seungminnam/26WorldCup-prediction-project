@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   buildGroupTable,
   fixtures as fixtureSeed,
+  isHostNationFixture,
   predictMatch,
   rankGroup,
   runMonteCarlo,
@@ -725,10 +726,8 @@ function FixtureCard({
   const homeTeam = match.homeTeamId ? teamsById[match.homeTeamId] : undefined;
   const awayTeam = match.awayTeamId ? teamsById[match.awayTeamId] : undefined;
   const prediction =
-    shouldShowPreMatchPrediction(match.status) &&
-    Number.isFinite(homeTeam?.rating) &&
-    Number.isFinite(awayTeam?.rating)
-      ? predictMatch(homeTeam, awayTeam)
+    shouldShowPreMatchPrediction(match.status) && homeTeam && awayTeam
+      ? predictMatch(homeTeam, awayTeam, { isNeutralVenue: !isHostNationFixture(match.homeTeamId ?? "") })
       : undefined;
   const outcomes = prediction && homeTeam && awayTeam
     ? buildOutcomePresentation({

@@ -110,7 +110,7 @@ test("contains every official Annex C combination exactly once", () => {
 test("simulates every later round through the official winner and loser references", () => {
   const roundOf32 = buildRoundOf32(groupRankings, optionOneThirds);
   const teamsById = Object.fromEntries(
-    groupRankings.flat().map(({ teamId }) => [teamId, { id: teamId, rating: 1600 }])
+    groupRankings.flat().map(({ teamId }) => [teamId, { id: teamId, attack: 0, defense: 0 }])
   );
   const result = simulateKnockout(roundOf32, teamsById, () => 0.5);
   const matchesById = new Map(
