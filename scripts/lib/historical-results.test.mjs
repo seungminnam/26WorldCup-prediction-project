@@ -51,13 +51,17 @@ test("loadCompetitiveMatches keeps exactly the rows that are competitive, played
 });
 
 test("parses quoted city fields containing a comma without shifting later columns", () => {
+  // neutral is deliberately TRUE here (not the real row's FALSE): if a column-shift bug
+  // reintroduces itself, `neutral` would be read from the `country` column ("United States"),
+  // which evaluates to `false` either way -- using TRUE is what actually makes this test fail
+  // under the bug instead of passing by coincidence.
   const csvWithQuotedComma = `date,home_team,away_team,home_score,away_score,tournament,city,country,neutral
-1977-10-06,United States,China,1,1,FIFA World Cup qualification,"Washington, D.C.",United States,FALSE
+1977-10-06,United States,China,1,1,FIFA World Cup qualification,"Washington, D.C.",United States,TRUE
 `;
   const matches = loadCompetitiveMatches(csvWithQuotedComma);
   const match = matches.find((m) => m.homeTeamId === "USA");
   assert.ok(match, "the match should be kept (not dropped) despite the quoted comma");
-  assert.equal(match.isNeutralVenue, false, "neutral should read FALSE, not be shifted onto the wrong column");
+  assert.equal(match.isNeutralVenue, true, "neutral should read TRUE from its real column, not be shifted onto country");
 });
 
 test("TEAM_NAME_TO_ID covers every team whose project name differs from the dataset's name", () => {
