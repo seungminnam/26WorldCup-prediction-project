@@ -50,10 +50,31 @@ function createGroupProjectionCounters(teamList) {
         rankCounts: [0, 0, 0, 0],
         points: 0,
         goalDifference: 0,
-        goalsFor: 0
+        goalsFor: 0,
+        pointsHistogram: new Map(),
+        goalDifferenceHistogram: new Map()
       }
     ])
   );
+}
+
+export function pickMode(histogram, tiebreakTarget) {
+  let best;
+
+  for (const [value, count] of histogram) {
+    const distance = Math.abs(value - tiebreakTarget);
+    const better =
+      !best ||
+      count > best.count ||
+      (count === best.count && distance < best.distance) ||
+      (count === best.count && distance === best.distance && value < best.value);
+
+    if (better) {
+      best = { value, count, distance };
+    }
+  }
+
+  return best?.value ?? 0;
 }
 
 function reached(finish, target) {
@@ -123,6 +144,11 @@ export function runMonteCarlo({
         projection.points += row.points;
         projection.goalDifference += row.goalDifference;
         projection.goalsFor += row.goalsFor;
+        projection.pointsHistogram.set(row.points, (projection.pointsHistogram.get(row.points) ?? 0) + 1);
+        projection.goalDifferenceHistogram.set(
+          row.goalDifference,
+          (projection.goalDifferenceHistogram.get(row.goalDifference) ?? 0) + 1
+        );
       });
     }
   }
@@ -149,25 +175,29 @@ export function runMonteCarlo({
     .map((row) => {
       const team = teamList.find((candidate) => candidate.id === row.teamId);
       const rankProbabilities = row.rankCounts.map((count) => count / simulations);
-      const expectedRank = rankProbabilities.reduce(
-        (sum, probability, index) => sum + probability * (index + 1),
-        0
-      );
+      const averagePoints = row.points / simulations;
+      const averageGoalDifference = row.goalDifference / simulations;
 
       return {
         teamId: row.teamId,
         name: team.name,
         group: team.group,
         rating: team.rating,
-        averagePoints: row.points / simulations,
-        averageGoalDifference: row.goalDifference / simulations,
+        modePoints: pickMode(row.pointsHistogram, averagePoints),
+        modeGoalDifference: pickMode(row.goalDifferenceHistogram, averageGoalDifference),
         averageGoalsFor: row.goalsFor / simulations,
-        expectedRank,
         rankProbabilities,
         roundOf32: probabilitiesByTeamId.get(row.teamId)?.roundOf32 ?? 0
       };
     })
-    .sort((a, b) => a.group.localeCompare(b.group) || a.expectedRank - b.expectedRank || b.rating - a.rating);
+    .sort(
+      (a, b) =>
+        a.group.localeCompare(b.group) ||
+        b.modePoints - a.modePoints ||
+        b.modeGoalDifference - a.modeGoalDifference ||
+        b.averageGoalsFor - a.averageGoalsFor ||
+        b.rating - a.rating
+    );
 
   return {
     simulations,

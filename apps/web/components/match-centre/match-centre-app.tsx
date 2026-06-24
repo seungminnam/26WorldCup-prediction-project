@@ -67,10 +67,9 @@ type GroupProjectionRow = {
   teamId: string;
   name: string;
   group: string;
-  averagePoints: number;
-  averageGoalDifference: number;
+  modePoints: number;
+  modeGoalDifference: number;
   averageGoalsFor: number;
-  expectedRank: number;
   rankProbabilities: number[];
   roundOf32: number;
 };
@@ -946,8 +945,8 @@ function ProjectedStandingTable({
                   {teamFlag(row.teamId, teamsById)} {teamName(row.teamId, teamsById)}
                 </span>
               </td>
-              <td>{formatRounded(row.averagePoints)}</td>
-              <td>{formatSignedRounded(row.averageGoalDifference)}</td>
+              <td>{formatRounded(row.modePoints)}</td>
+              <td>{formatSignedRounded(row.modeGoalDifference)}</td>
               <td>{formatPercent(topTwoProbability(row))}</td>
               <td>
                 <strong>{formatPercent(row.roundOf32)}</strong>
