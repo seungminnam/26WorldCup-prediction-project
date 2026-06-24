@@ -108,10 +108,19 @@ test("keeps real historical competitive matches and maps team names to IDs", () 
   assert.equal(final2022.isNeutralVenue, true);
 });
 
-test("skips rows whose team names aren't in the mapping table instead of throwing", () => {
+test("keeps competitive matches between teams outside the 48-team mapping table, using their raw dataset name as the ID", () => {
   const matches = loadCompetitiveMatches(sampleCsv);
-  assert.ok(!matches.some((match) => match.homeTeamId === "Atlantis" || match.awayTeamId === "Wakanda"));
-  assert.equal(matches.length, 2);
+  const nonWorldCupMatch = matches.find((match) => match.homeTeamId === "Atlantis" && match.awayTeamId === "Wakanda");
+  assert.ok(
+    nonWorldCupMatch,
+    "a competitive match between two teams that never qualified for the 2026 World Cup must still be kept -- the fit needs the full historical network, not just intra-48-team matches"
+  );
+  assert.equal(nonWorldCupMatch.homeGoals, 1);
+});
+
+test("loadCompetitiveMatches keeps exactly the rows that are competitive, played, and not part of the 2026 World Cup", () => {
+  const matches = loadCompetitiveMatches(sampleCsv);
+  assert.equal(matches.length, 3);
 });
 
 test("TEAM_NAME_TO_ID covers every team whose project name differs from the dataset's name", () => {
@@ -207,9 +216,9 @@ export function loadCompetitiveMatches(csvText) {
     if (tournament === "FIFA World Cup" && date >= "2026-01-01") continue;
     if (homeScore === "NA" || awayScore === "NA") continue;
 
-    const homeTeamId = TEAM_NAME_TO_ID.get(homeTeam);
-    const awayTeamId = TEAM_NAME_TO_ID.get(awayTeam);
-    if (!homeTeamId || !awayTeamId) continue;
+    if (!homeTeam || !awayTeam) continue;
+    const homeTeamId = TEAM_NAME_TO_ID.get(homeTeam) ?? homeTeam;
+    const awayTeamId = TEAM_NAME_TO_ID.get(awayTeam) ?? awayTeam;
 
     matches.push({
       date: new Date(date),
