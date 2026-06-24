@@ -13,7 +13,8 @@
 - `rating` is untouched — it remains the tiebreaker sort key in `ranking.js`/`thirdPlace.js`/`simulator.js`. Only score/outcome *prediction* changes.
 - Training data excludes: rows where `tournament == "Friendly"`, rows with `NA` scores, and every row where `tournament == "FIFA World Cup"` and `date >= "2026-01-01"` (the in-progress 2026 tournament itself — training must never see the matches it's about to predict, including the 48 already-played 2026 group matches already present in the dataset).
 - Home advantage applies only to the literal home team's lambda, never the away team's, regardless of which argument order a function is called with.
-- `ξ = 0.001` per day (fixed, not tuned) for the recency-decay weight `exp(-ξ × daysSinceMatch)` — chosen and empirically verified during planning (half-life ≈ 693 days ≈ 1.9 years; the original draft's `0.0065` figure was an arithmetic error inconsistent with its own "multi-year half-life" framing — `ln(2)/0.0065 ≈ 107 days`, not multi-year — caught and corrected by Task 3's implementer before this plan was finalized).
+- `ξ = 0.0001` per day for the **production model** (Task 4's real training run and Task 6's evaluation script) — recency-decay weight `exp(-ξ × daysSinceMatch)`, half-life ≈ 19 years. Task 3's own synthetic recovery test uses a different, simpler `ξ = 0.001` (≈1.9-year half-life) purely to keep that test's small synthetic dataset converging quickly — that value has no bearing on production quality, only on proving the fitting code itself is correct. The production value was chosen empirically, not by formula: training on the real ~31,000-match dataset at the originally-planned `ξ = 0.001` (caught and fixed from an earlier `0.0065` arithmetic error — see Task 3) converged cleanly but produced an implausible result on inspection (Argentina, the reigning World Cup holder, came out with *worse* fitted attack and defense than Jordan, a team that has never reached a World Cup) — sweeping `ξ` from `0.001` down to `0.00003` (1.9-year to 63-year half-life) showed a clean, monotonic trend: longer history windows produce more sensible cross-confederation comparisons, because a too-short window leaves any one confederation's recent form (e.g. a hot AFC qualifying run against weak group opponents) under-anchored against the rest of the global network. `0.0001` was chosen as a middle point that still meaningfully discounts decades-old results while fixing the Argentina/Jordan inversion; Task 6's backtest is the real, rigorous check on this choice, not this one spot-check pair — if the backtest's log-loss/Brier score don't beat the naive 1/3-1/3-1/3 baseline, this is the first hyperparameter to revisit.
+- Production training/evaluation use `iterations = 20000`, not `400` — `400` was enough to avoid `NaN` but nowhere near enough to converge at the real dataset's scale (hundreds of teams' worth of attack/defense parameters, versus Task 3's 4-team synthetic test). Verified empirically: results are bit-for-bit identical at 15,000 vs. 30,000 vs. 60,000 iterations, confirming convergence well before 20,000.
 - Gradients are averaged (divided by the sum of match weights), not summed, before applying the learning-rate step — raw summed gradients over a full historical dataset (tens of thousands of matches) diverge regardless of learning rate; averaging keeps the optimizer's behavior independent of dataset size.
 - Training is a one-time, manually-invoked script — no scheduled job.
 
@@ -710,14 +711,14 @@ function main() {
 
   console.log("Fitting Dixon-Coles parameters (this takes a few minutes)...");
   const fit = fitDixonColes(matches, teamIds, {
-    iterations: 400,
+    iterations: 20000,
     learningRate: 0.3,
     l2: 0.001,
-    xi: 0.001,
+    xi: 0.0001,
     referenceDate
   });
   if ([...fit.attack.values(), fit.homeAdvantage, fit.rho].some((value) => !Number.isFinite(value))) {
-    throw new Error("Fit diverged to NaN/Infinity on the real dataset. Task 3's gradient-averaging fix was verified stable on a 1,800-match synthetic dataset, not yet on the full ~31,000-match real one — if this fires, try halving learningRate before assuming a deeper bug.");
+    throw new Error("Fit diverged to NaN/Infinity on the real dataset. Halve learningRate and retry before assuming a deeper bug.");
   }
 
   const teamStrength = {};
@@ -1190,10 +1191,10 @@ function main() {
 
   const trainTeamIds = new Set(trainMatches.flatMap((match) => [match.homeTeamId, match.awayTeamId]));
   const fit = fitDixonColes(trainMatches, [...trainTeamIds], {
-    iterations: 400,
+    iterations: 20000,
     learningRate: 0.3,
     l2: 0.001,
-    xi: 0.001,
+    xi: 0.0001,
     referenceDate: HOLDOUT_CUTOFF
   });
 
