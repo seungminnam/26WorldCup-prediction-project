@@ -195,6 +195,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
   const [mode, setMode] = useState<"snapshot" | "pre">("snapshot");
   const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>();
   const [forecast, setForecast] = useState<ForecastResult | undefined>();
+  const [forecastSeed, setForecastSeed] = useState<string | undefined>();
   const bracketRef = useRef<HTMLDivElement | null>(null);
   const datePillRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -320,12 +321,21 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
   const selectedTeam = forecast?.probabilities.find(
     (team) => team.teamId === (selectedTeamId ?? forecast.probabilities[0]?.teamId)
   );
-
-  function runForecast() {
-    const fixtureList =
+  const forecastFixtureList = useMemo(
+    () =>
       mode === "pre"
         ? simulationFixtures.map(({ homeGoals, awayGoals, ...match }) => match)
-        : simulationFixtures;
+        : simulationFixtures,
+    [mode, simulationFixtures]
+  );
+  const currentForecastSeed = useMemo(
+    () => buildForecastSeed({ mode, simulationCount, fixtureList: forecastFixtureList }),
+    [mode, simulationCount, forecastFixtureList]
+  );
+  const isForecastStale = Boolean(forecast) && forecastSeed !== undefined && currentForecastSeed !== forecastSeed;
+
+  function runForecast() {
+    const seed = buildForecastSeed({ mode, simulationCount, fixtureList: forecastFixtureList });
     const result = (runMonteCarlo as unknown as (options: {
       simulations: number;
       teamList: AppTeam[];
@@ -334,10 +344,11 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     }) => ForecastResult)({
       simulations: simulationCount,
       teamList: teams,
-      fixtureList,
-      seed: buildForecastSeed({ mode, simulationCount, fixtureList })
+      fixtureList: forecastFixtureList,
+      seed
     });
     setForecast(result);
+    setForecastSeed(seed);
     setSelectedTeamId((current) => current ?? result.probabilities[0]?.teamId);
   }
 
@@ -487,6 +498,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                   </div>
                   <span>Latest simulation path</span>
                 </div>
+                {isForecastStale && <ForecastStaleNotice onRerun={runForecast} />}
                 <div className="standings-grid">
                   {projectedStandings.map((rows) => (
                     <ProjectedStandingTable key={rows[0].group} rows={rows} teamsById={teamsById} />
@@ -604,6 +616,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                     Run Forecast
                   </button>
                 </div>
+                {isForecastStale && <ForecastStaleNotice onRerun={runForecast} />}
                 <div className="favorites" aria-live="polite">
                   {forecast.probabilities.slice(0, 4).map((team, index) => (
                     <article className="favorite-card" key={team.teamId}>
@@ -889,6 +902,17 @@ function StandingTable({
         </tbody>
       </table>
     </article>
+  );
+}
+
+function ForecastStaleNotice({ onRerun }: { onRerun: () => void }) {
+  return (
+    <div className="forecast-stale-notice">
+      <span>New results came in since this forecast ran.</span>
+      <button type="button" onClick={onRerun}>
+        Recalculate
+      </button>
+    </div>
   );
 }
 

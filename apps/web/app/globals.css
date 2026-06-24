@@ -254,6 +254,32 @@ p {
   font-weight: 700;
 }
 
+.forecast-stale-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fff7e6;
+  color: #8a5a00;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.forecast-stale-notice button {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .date-filter-controls {
   display: flex;
   align-items: stretch;
