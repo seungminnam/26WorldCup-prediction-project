@@ -41,19 +41,102 @@ function createCounters(teamList) {
   );
 }
 
-function createGroupProjectionCounters(teamList) {
-  return Object.fromEntries(
-    teamList.map((team) => [
-      team.id,
-      {
-        teamId: team.id,
-        rankCounts: [0, 0, 0, 0],
-        points: 0,
-        goalDifference: 0,
-        goalsFor: 0
-      }
-    ])
-  );
+function createRankCounters(teamList) {
+  return Object.fromEntries(teamList.map((team) => [team.id, [0, 0, 0, 0]]));
+}
+
+function canonicalGroupOutcomeKey(ranking) {
+  return [...ranking]
+    .sort((a, b) => a.teamId.localeCompare(b.teamId))
+    .map((row) => `${row.teamId}:${row.points}`)
+    .join(",");
+}
+
+function recordGroupOutcome(groupOutcomesByGroup, group, ranking) {
+  groupOutcomesByGroup[group] ??= new Map();
+  const outcomes = groupOutcomesByGroup[group];
+  const key = canonicalGroupOutcomeKey(ranking);
+
+  if (!outcomes.has(key)) {
+    outcomes.set(key, {
+      count: 0,
+      pointsByTeam: new Map(ranking.map((row) => [row.teamId, row.points])),
+      perTeam: new Map(ranking.map((row) => [row.teamId, { gdHistogram: new Map(), goalsForSum: 0, goalsForCount: 0 }]))
+    });
+  }
+
+  const outcome = outcomes.get(key);
+  outcome.count += 1;
+
+  for (const row of ranking) {
+    const stats = outcome.perTeam.get(row.teamId);
+    stats.gdHistogram.set(row.goalDifference, (stats.gdHistogram.get(row.goalDifference) ?? 0) + 1);
+    stats.goalsForSum += row.goalsFor;
+    stats.goalsForCount += 1;
+  }
+}
+
+export function pickMode(histogram, tiebreakTarget) {
+  let best;
+
+  for (const [value, count] of histogram) {
+    const distance = Math.abs(value - tiebreakTarget);
+    const better =
+      !best ||
+      count > best.count ||
+      (count === best.count && distance < best.distance) ||
+      (count === best.count && distance === best.distance && value < best.value);
+
+    if (better) {
+      best = { value, count, distance };
+    }
+  }
+
+  return best?.value ?? 0;
+}
+
+function meanFromHistogram(histogram) {
+  let weightedSum = 0;
+  let total = 0;
+
+  for (const [value, count] of histogram) {
+    weightedSum += value * count;
+    total += count;
+  }
+
+  return total === 0 ? 0 : weightedSum / total;
+}
+
+function pickModalOutcome(outcomes) {
+  let best;
+
+  for (const [key, outcome] of outcomes) {
+    const better = !best || outcome.count > best.count || (outcome.count === best.count && key < best.key);
+    if (better) {
+      best = { key, ...outcome };
+    }
+  }
+
+  return best;
+}
+
+export function summarizeGroupOutcome(outcomes, teamIds) {
+  const modalOutcome = pickModalOutcome(outcomes);
+  const summaries = new Map();
+
+  for (const teamId of teamIds) {
+    const stats = modalOutcome.perTeam.get(teamId);
+    const modeGoalDifference = pickMode(stats.gdHistogram, meanFromHistogram(stats.gdHistogram));
+    const averageGoalsFor = stats.goalsForCount === 0 ? 0 : stats.goalsForSum / stats.goalsForCount;
+
+    summaries.set(teamId, {
+      modePoints: modalOutcome.pointsByTeam.get(teamId),
+      modeGoalDifference,
+      averageGoalsFor
+    });
+  }
+
+  return summaries;
 }
 
 function reached(finish, target) {
@@ -98,7 +181,8 @@ export function runMonteCarlo({
   seed
 } = {}) {
   const counters = createCounters(teamList);
-  const groupProjectionCounters = createGroupProjectionCounters(teamList);
+  const rankCounters = createRankCounters(teamList);
+  const groupOutcomesByGroup = {};
   const simulationRandom = random ?? (seed === undefined ? Math.random : createSeededRandom(seed));
   let sampleBracket;
 
@@ -118,12 +202,9 @@ export function runMonteCarlo({
 
     for (const ranking of tournament.groupRankings) {
       ranking.forEach((row, rankIndex) => {
-        const projection = groupProjectionCounters[row.teamId];
-        projection.rankCounts[rankIndex] += 1;
-        projection.points += row.points;
-        projection.goalDifference += row.goalDifference;
-        projection.goalsFor += row.goalsFor;
+        rankCounters[row.teamId][rankIndex] += 1;
       });
+      recordGroupOutcome(groupOutcomesByGroup, ranking[0].group, ranking);
     }
   }
 
@@ -145,29 +226,29 @@ export function runMonteCarlo({
     })
     .sort((a, b) => b.champion - a.champion || b.final - a.final || b.rating - a.rating);
   const probabilitiesByTeamId = new Map(probabilities.map((row) => [row.teamId, row]));
-  const groupProjections = Object.values(groupProjectionCounters)
-    .map((row) => {
-      const team = teamList.find((candidate) => candidate.id === row.teamId);
-      const rankProbabilities = row.rankCounts.map((count) => count / simulations);
-      const expectedRank = rankProbabilities.reduce(
-        (sum, probability, index) => sum + probability * (index + 1),
-        0
-      );
+  const groupProjections = Object.entries(groupOutcomesByGroup)
+    .flatMap(([group, outcomes]) => {
+      const teamsInGroup = teamList.filter((team) => team.group === group);
+      const summaries = summarizeGroupOutcome(outcomes, teamsInGroup.map((team) => team.id));
 
-      return {
-        teamId: row.teamId,
+      return teamsInGroup.map((team) => ({
+        teamId: team.id,
         name: team.name,
         group: team.group,
         rating: team.rating,
-        averagePoints: row.points / simulations,
-        averageGoalDifference: row.goalDifference / simulations,
-        averageGoalsFor: row.goalsFor / simulations,
-        expectedRank,
-        rankProbabilities,
-        roundOf32: probabilitiesByTeamId.get(row.teamId)?.roundOf32 ?? 0
-      };
+        ...summaries.get(team.id),
+        rankProbabilities: rankCounters[team.id].map((count) => count / simulations),
+        roundOf32: probabilitiesByTeamId.get(team.id)?.roundOf32 ?? 0
+      }));
     })
-    .sort((a, b) => a.group.localeCompare(b.group) || a.expectedRank - b.expectedRank || b.rating - a.rating);
+    .sort(
+      (a, b) =>
+        a.group.localeCompare(b.group) ||
+        b.modePoints - a.modePoints ||
+        b.modeGoalDifference - a.modeGoalDifference ||
+        b.averageGoalsFor - a.averageGoalsFor ||
+        b.rating - a.rating
+    );
 
   return {
     simulations,
