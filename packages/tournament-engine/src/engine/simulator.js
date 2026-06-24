@@ -48,11 +48,9 @@ function createGroupProjectionCounters(teamList) {
       {
         teamId: team.id,
         rankCounts: [0, 0, 0, 0],
-        points: 0,
-        goalDifference: 0,
-        goalsFor: 0,
         pointsHistogram: new Map(),
-        goalDifferenceHistogram: new Map()
+        conditionalGoalDifference: new Map(),
+        conditionalGoalsFor: new Map()
       }
     ])
   );
@@ -75,6 +73,31 @@ export function pickMode(histogram, tiebreakTarget) {
   }
 
   return best?.value ?? 0;
+}
+
+function meanFromHistogram(histogram) {
+  let weightedSum = 0;
+  let total = 0;
+
+  for (const [value, count] of histogram) {
+    weightedSum += value * count;
+    total += count;
+  }
+
+  return total === 0 ? 0 : weightedSum / total;
+}
+
+export function summarizeGroupProjection(row, simulations) {
+  const rankProbabilities = row.rankCounts.map((count) => count / simulations);
+  const modePoints = pickMode(row.pointsHistogram, meanFromHistogram(row.pointsHistogram));
+
+  const conditionalGdHistogram = row.conditionalGoalDifference.get(modePoints) ?? new Map();
+  const modeGoalDifference = pickMode(conditionalGdHistogram, meanFromHistogram(conditionalGdHistogram));
+
+  const goalsForBucket = row.conditionalGoalsFor.get(modePoints) ?? { sum: 0, count: 0 };
+  const averageGoalsFor = goalsForBucket.count === 0 ? 0 : goalsForBucket.sum / goalsForBucket.count;
+
+  return { modePoints, modeGoalDifference, averageGoalsFor, rankProbabilities };
 }
 
 function reached(finish, target) {
@@ -141,14 +164,19 @@ export function runMonteCarlo({
       ranking.forEach((row, rankIndex) => {
         const projection = groupProjectionCounters[row.teamId];
         projection.rankCounts[rankIndex] += 1;
-        projection.points += row.points;
-        projection.goalDifference += row.goalDifference;
-        projection.goalsFor += row.goalsFor;
         projection.pointsHistogram.set(row.points, (projection.pointsHistogram.get(row.points) ?? 0) + 1);
-        projection.goalDifferenceHistogram.set(
-          row.goalDifference,
-          (projection.goalDifferenceHistogram.get(row.goalDifference) ?? 0) + 1
-        );
+
+        if (!projection.conditionalGoalDifference.has(row.points)) {
+          projection.conditionalGoalDifference.set(row.points, new Map());
+          projection.conditionalGoalsFor.set(row.points, { sum: 0, count: 0 });
+        }
+
+        const gdHistogramForPoints = projection.conditionalGoalDifference.get(row.points);
+        gdHistogramForPoints.set(row.goalDifference, (gdHistogramForPoints.get(row.goalDifference) ?? 0) + 1);
+
+        const goalsForBucket = projection.conditionalGoalsFor.get(row.points);
+        goalsForBucket.sum += row.goalsFor;
+        goalsForBucket.count += 1;
       });
     }
   }
@@ -174,19 +202,14 @@ export function runMonteCarlo({
   const groupProjections = Object.values(groupProjectionCounters)
     .map((row) => {
       const team = teamList.find((candidate) => candidate.id === row.teamId);
-      const rankProbabilities = row.rankCounts.map((count) => count / simulations);
-      const averagePoints = row.points / simulations;
-      const averageGoalDifference = row.goalDifference / simulations;
+      const summary = summarizeGroupProjection(row, simulations);
 
       return {
         teamId: row.teamId,
         name: team.name,
         group: team.group,
         rating: team.rating,
-        modePoints: pickMode(row.pointsHistogram, averagePoints),
-        modeGoalDifference: pickMode(row.goalDifferenceHistogram, averageGoalDifference),
-        averageGoalsFor: row.goalsFor / simulations,
-        rankProbabilities,
+        ...summary,
         roundOf32: probabilitiesByTeamId.get(row.teamId)?.roundOf32 ?? 0
       };
     })

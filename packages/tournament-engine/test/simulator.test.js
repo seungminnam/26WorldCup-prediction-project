@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { pickMode, runMonteCarlo } from "../src/engine/simulator.js";
+import { pickMode, runMonteCarlo, summarizeGroupProjection } from "../src/engine/simulator.js";
 
 test("pickMode returns the value with the highest count", () => {
   const histogram = new Map([
@@ -54,6 +54,52 @@ test("runMonteCarlo's groupProjections sort by mode points, then mode goal diffe
       );
     }
   }
+});
+
+test("summarizeGroupProjection conditions goal difference and goals for on the team's own modal points outcome", () => {
+  const row = {
+    rankCounts: [6, 4, 0, 0],
+    pointsHistogram: new Map([
+      [4, 4],
+      [7, 6]
+    ]),
+    conditionalGoalDifference: new Map([
+      [4, new Map([[3, 4]])],
+      [7, new Map([[5, 4], [6, 2]])]
+    ]),
+    conditionalGoalsFor: new Map([
+      [4, { sum: 20, count: 4 }],
+      [7, { sum: 42, count: 6 }]
+    ])
+  };
+
+  const summary = summarizeGroupProjection(row, 10);
+
+  assert.equal(summary.modePoints, 7);
+  assert.equal(summary.modeGoalDifference, 5);
+  assert.equal(summary.averageGoalsFor, 7);
+});
+
+test("summarizeGroupProjection never mixes a draw outcome's goal difference into a win outcome's points", () => {
+  const row = {
+    rankCounts: [6, 4, 0, 0],
+    pointsHistogram: new Map([
+      [4, 4],
+      [7, 6]
+    ]),
+    conditionalGoalDifference: new Map([
+      [4, new Map([[3, 4]])],
+      [7, new Map([[5, 4], [6, 2]])]
+    ]),
+    conditionalGoalsFor: new Map([
+      [4, { sum: 20, count: 4 }],
+      [7, { sum: 42, count: 6 }]
+    ])
+  };
+
+  const summary = summarizeGroupProjection(row, 10);
+
+  assert.notEqual(summary.modeGoalDifference, 3, "the draw scenario's flat goal difference should not leak into the win scenario's display value");
 });
 
 test("runMonteCarlo's groupProjections expose mode-based fields instead of expectedRank/average points", () => {
