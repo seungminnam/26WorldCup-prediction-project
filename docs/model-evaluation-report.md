@@ -14,6 +14,16 @@ A Dixon-Coles model is fit on every competitive (non-friendly) historical match 
 | Log loss | 0.8794 | Lower is better; 0 is a perfect, fully-confident-and-correct model. A model that always predicted 1/3-1/3-1/3 would score `-ln(1/3) ≈ 1.0986`, a useful naive baseline for comparison. |
 | Brier score | 0.5163 | Lower is better; 0 is perfect. A 1/3-1/3-1/3 naive baseline scores `2/3 ≈ 0.667`. |
 
+A tougher baseline than uniform 1/3-1/3-1/3 is "always predict a home win" — home teams won **46.8%** of the 4,195 held-out matches (22.1% draw, 31.1% away win), so a baseline that always guesses "home win" scores 46.8% accuracy with no model at all. The trained model's 59.8% beats that stronger baseline by 13 points (a ~28% relative improvement), not just the weaker uniform one.
+
+## Known limitation: confederation-imbalanced historical schedules can overrate some teams
+
+The fitted attack/defense parameters are based purely on goals scored/conceded, time-decay-weighted by recency, with no adjustment for *how weak a team's typical opponents were*. A team whose entire competitive history (not just a recent hot streak — found to persist back to a team's full historical record, so a longer recency half-life does not fix it) is dominated by matches against historically weak regional opposition can come out with an inflated attack rating that doesn't reflect how it would fare against elite opposition.
+
+Concretely: Australia's fitted attack parameter (0.80) is fit from an all-time average of 2.47 goals scored per competitive match (331 matches) — high enough to place it among the model's top scorers, ahead of Argentina (0.69) — driven by a long history of lopsided wins in Oceania/early-AFC-region qualifying. This shows up as a real distortion in the app's tournament-simulation aggregate (Australia ranks #3 in simulated title odds at 9.1%, ahead of the reigning World Cup holder Argentina at 5.5%), even though the model's *overall* accuracy across thousands of real matches (above) is genuinely good.
+
+This wasn't caught by the Argentina/Jordan spot-check during training (Task 4) because that case *was* a recency artifact, fixable by lengthening the half-life — this is a different, deeper issue (a lifetime pattern, not a recent-form one) that a longer half-life does not fix. The natural next step is regularizing each team's fitted parameters toward a prior informed by their real FIFA World Ranking (`fifaRanking`, already present per-team in `packages/tournament-engine/src/data/teams.js` from earlier tiebreaker work) instead of toward zero — shrinking outlier-prone, weak-network teams back toward a credible real-world anchor without needing confederation-level modeling. Tracked as a follow-up, not blocking this model's initial ship: the backtest above already establishes it as a measured net improvement over the previous hand-tuned baseline.
+
 ## Data
 
 - Source: martj42/international_results (CC0), see `scripts/data/SOURCE.md`.
