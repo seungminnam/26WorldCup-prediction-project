@@ -41,19 +41,39 @@ function createCounters(teamList) {
   );
 }
 
-function createGroupProjectionCounters(teamList) {
-  return Object.fromEntries(
-    teamList.map((team) => [
-      team.id,
-      {
-        teamId: team.id,
-        rankCounts: [0, 0, 0, 0],
-        pointsHistogram: new Map(),
-        conditionalGoalDifference: new Map(),
-        conditionalGoalsFor: new Map()
-      }
-    ])
-  );
+function createRankCounters(teamList) {
+  return Object.fromEntries(teamList.map((team) => [team.id, [0, 0, 0, 0]]));
+}
+
+function canonicalGroupOutcomeKey(ranking) {
+  return [...ranking]
+    .sort((a, b) => a.teamId.localeCompare(b.teamId))
+    .map((row) => `${row.teamId}:${row.points}`)
+    .join(",");
+}
+
+function recordGroupOutcome(groupOutcomesByGroup, group, ranking) {
+  groupOutcomesByGroup[group] ??= new Map();
+  const outcomes = groupOutcomesByGroup[group];
+  const key = canonicalGroupOutcomeKey(ranking);
+
+  if (!outcomes.has(key)) {
+    outcomes.set(key, {
+      count: 0,
+      pointsByTeam: new Map(ranking.map((row) => [row.teamId, row.points])),
+      perTeam: new Map(ranking.map((row) => [row.teamId, { gdHistogram: new Map(), goalsForSum: 0, goalsForCount: 0 }]))
+    });
+  }
+
+  const outcome = outcomes.get(key);
+  outcome.count += 1;
+
+  for (const row of ranking) {
+    const stats = outcome.perTeam.get(row.teamId);
+    stats.gdHistogram.set(row.goalDifference, (stats.gdHistogram.get(row.goalDifference) ?? 0) + 1);
+    stats.goalsForSum += row.goalsFor;
+    stats.goalsForCount += 1;
+  }
 }
 
 export function pickMode(histogram, tiebreakTarget) {
@@ -87,17 +107,36 @@ function meanFromHistogram(histogram) {
   return total === 0 ? 0 : weightedSum / total;
 }
 
-export function summarizeGroupProjection(row, simulations) {
-  const rankProbabilities = row.rankCounts.map((count) => count / simulations);
-  const modePoints = pickMode(row.pointsHistogram, meanFromHistogram(row.pointsHistogram));
+function pickModalOutcome(outcomes) {
+  let best;
 
-  const conditionalGdHistogram = row.conditionalGoalDifference.get(modePoints) ?? new Map();
-  const modeGoalDifference = pickMode(conditionalGdHistogram, meanFromHistogram(conditionalGdHistogram));
+  for (const [key, outcome] of outcomes) {
+    const better = !best || outcome.count > best.count || (outcome.count === best.count && key < best.key);
+    if (better) {
+      best = { key, ...outcome };
+    }
+  }
 
-  const goalsForBucket = row.conditionalGoalsFor.get(modePoints) ?? { sum: 0, count: 0 };
-  const averageGoalsFor = goalsForBucket.count === 0 ? 0 : goalsForBucket.sum / goalsForBucket.count;
+  return best;
+}
 
-  return { modePoints, modeGoalDifference, averageGoalsFor, rankProbabilities };
+export function summarizeGroupOutcome(outcomes, teamIds) {
+  const modalOutcome = pickModalOutcome(outcomes);
+  const summaries = new Map();
+
+  for (const teamId of teamIds) {
+    const stats = modalOutcome.perTeam.get(teamId);
+    const modeGoalDifference = pickMode(stats.gdHistogram, meanFromHistogram(stats.gdHistogram));
+    const averageGoalsFor = stats.goalsForCount === 0 ? 0 : stats.goalsForSum / stats.goalsForCount;
+
+    summaries.set(teamId, {
+      modePoints: modalOutcome.pointsByTeam.get(teamId),
+      modeGoalDifference,
+      averageGoalsFor
+    });
+  }
+
+  return summaries;
 }
 
 function reached(finish, target) {
@@ -142,7 +181,8 @@ export function runMonteCarlo({
   seed
 } = {}) {
   const counters = createCounters(teamList);
-  const groupProjectionCounters = createGroupProjectionCounters(teamList);
+  const rankCounters = createRankCounters(teamList);
+  const groupOutcomesByGroup = {};
   const simulationRandom = random ?? (seed === undefined ? Math.random : createSeededRandom(seed));
   let sampleBracket;
 
@@ -162,22 +202,9 @@ export function runMonteCarlo({
 
     for (const ranking of tournament.groupRankings) {
       ranking.forEach((row, rankIndex) => {
-        const projection = groupProjectionCounters[row.teamId];
-        projection.rankCounts[rankIndex] += 1;
-        projection.pointsHistogram.set(row.points, (projection.pointsHistogram.get(row.points) ?? 0) + 1);
-
-        if (!projection.conditionalGoalDifference.has(row.points)) {
-          projection.conditionalGoalDifference.set(row.points, new Map());
-          projection.conditionalGoalsFor.set(row.points, { sum: 0, count: 0 });
-        }
-
-        const gdHistogramForPoints = projection.conditionalGoalDifference.get(row.points);
-        gdHistogramForPoints.set(row.goalDifference, (gdHistogramForPoints.get(row.goalDifference) ?? 0) + 1);
-
-        const goalsForBucket = projection.conditionalGoalsFor.get(row.points);
-        goalsForBucket.sum += row.goalsFor;
-        goalsForBucket.count += 1;
+        rankCounters[row.teamId][rankIndex] += 1;
       });
+      recordGroupOutcome(groupOutcomesByGroup, ranking[0].group, ranking);
     }
   }
 
@@ -199,19 +226,20 @@ export function runMonteCarlo({
     })
     .sort((a, b) => b.champion - a.champion || b.final - a.final || b.rating - a.rating);
   const probabilitiesByTeamId = new Map(probabilities.map((row) => [row.teamId, row]));
-  const groupProjections = Object.values(groupProjectionCounters)
-    .map((row) => {
-      const team = teamList.find((candidate) => candidate.id === row.teamId);
-      const summary = summarizeGroupProjection(row, simulations);
+  const groupProjections = Object.entries(groupOutcomesByGroup)
+    .flatMap(([group, outcomes]) => {
+      const teamsInGroup = teamList.filter((team) => team.group === group);
+      const summaries = summarizeGroupOutcome(outcomes, teamsInGroup.map((team) => team.id));
 
-      return {
-        teamId: row.teamId,
+      return teamsInGroup.map((team) => ({
+        teamId: team.id,
         name: team.name,
         group: team.group,
         rating: team.rating,
-        ...summary,
-        roundOf32: probabilitiesByTeamId.get(row.teamId)?.roundOf32 ?? 0
-      };
+        ...summaries.get(team.id),
+        rankProbabilities: rankCounters[team.id].map((count) => count / simulations),
+        roundOf32: probabilitiesByTeamId.get(team.id)?.roundOf32 ?? 0
+      }));
     })
     .sort(
       (a, b) =>
