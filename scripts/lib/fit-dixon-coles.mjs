@@ -2,6 +2,31 @@ import { computeLambda, tauAdjustment } from "../../packages/tournament-engine/s
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
+export function computeEffectiveMatchCounts(matches, teamIds, { xi, referenceDate }) {
+  const counts = new Map(teamIds.map((id) => [id, 0]));
+
+  for (const match of matches) {
+    const weight = Math.exp((-xi * (referenceDate.getTime() - match.date.getTime())) / MILLISECONDS_PER_DAY);
+    if (counts.has(match.homeTeamId)) counts.set(match.homeTeamId, counts.get(match.homeTeamId) + weight);
+    if (counts.has(match.awayTeamId)) counts.set(match.awayTeamId, counts.get(match.awayTeamId) + weight);
+  }
+
+  return counts;
+}
+
+export function linearRegression(points) {
+  const n = points.length;
+  const sumX = points.reduce((sum, point) => sum + point.x, 0);
+  const sumY = points.reduce((sum, point) => sum + point.y, 0);
+  const sumXY = points.reduce((sum, point) => sum + point.x * point.y, 0);
+  const sumXX = points.reduce((sum, point) => sum + point.x * point.x, 0);
+
+  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+  const intercept = (sumY - slope * sumX) / n;
+
+  return { slope, intercept };
+}
+
 function tauGradients(homeGoals, awayGoals, lambdaHome, lambdaAway, rho) {
   if (homeGoals === 0 && awayGoals === 0) {
     const tau = tauAdjustment(0, 0, lambdaHome, lambdaAway, rho);

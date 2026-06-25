@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { computeLambda, scorelineProbability } from "../../packages/tournament-engine/src/engine/dixon-coles.js";
-import { fitDixonColes } from "./fit-dixon-coles.mjs";
+import { fitDixonColes, computeEffectiveMatchCounts, linearRegression } from "./fit-dixon-coles.mjs";
 
 function createSeededRandom(seedText) {
   let state = 2166136261;
@@ -113,4 +113,59 @@ test("fitDixonColes weights recent matches more than old ones", () => {
     recentHeavy.attack.get("B") > recentHeavy.attack.get("A"),
     "three heavily-weighted recent B-dominant matches should outweigh one old A-dominant match"
   );
+});
+
+test("computeEffectiveMatchCounts weights recent matches more than old ones, summed per team", () => {
+  const referenceDate = new Date(2026, 0, 1);
+  const matches = [
+    { date: new Date(2025, 11, 1), homeTeamId: "A", awayTeamId: "B" }, // 31 days before referenceDate
+    { date: new Date(2000, 0, 1), homeTeamId: "A", awayTeamId: "C" }, // ~26 years before referenceDate -- negligible weight
+    { date: new Date(2025, 10, 1), homeTeamId: "B", awayTeamId: "C" } // 61 days before referenceDate
+  ];
+
+  const counts = computeEffectiveMatchCounts(matches, ["A", "B", "C"], { xi: 0.01, referenceDate });
+
+  // A: one 31-day-old match + one ~26-year-old match (weight ~0).
+  // B: one 31-day-old match + one 61-day-old match -- strictly more total weight than A.
+  // C: one ~26-year-old match (weight ~0) + one 61-day-old match.
+  assert.ok(counts.get("A") > 0 && counts.get("B") > 0 && counts.get("C") > 0);
+  assert.ok(
+    counts.get("B") > counts.get("A"),
+    "B has two recent matches; A has only one recent match plus one negligibly-weighted ancient one, so B's total must be strictly higher"
+  );
+
+  const ancientMatchWeight = Math.exp((-0.01 * (referenceDate.getTime() - new Date(2000, 0, 1).getTime())) / (24 * 60 * 60 * 1000));
+  assert.ok(ancientMatchWeight < 1e-9, "sanity check: the year-2000 match's weight must itself be negligible for the assertion below to hold");
+
+  const expectedC = Math.exp(-0.01 * 61);
+  assert.ok(Math.abs(counts.get("C") - expectedC) < 1e-9);
+});
+
+test("linearRegression recovers a known slope and intercept from points exactly on a line", () => {
+  const points = [
+    { x: 0, y: 5 },
+    { x: 1, y: 8 },
+    { x: 2, y: 11 },
+    { x: 3, y: 14 }
+  ];
+
+  const { slope, intercept } = linearRegression(points);
+
+  assert.ok(Math.abs(slope - 3) < 1e-9);
+  assert.ok(Math.abs(intercept - 5) < 1e-9);
+});
+
+test("linearRegression fits a least-squares line through noisy points", () => {
+  const points = [
+    { x: 1, y: 2.1 },
+    { x: 2, y: 3.9 },
+    { x: 3, y: 6.2 },
+    { x: 4, y: 7.8 }
+  ];
+
+  const { slope, intercept } = linearRegression(points);
+
+  // Hand-computed OLS for these 4 points: slope = 1.94, intercept = 0.15.
+  assert.ok(Math.abs(slope - 1.94) < 1e-9);
+  assert.ok(Math.abs(intercept - 0.15) < 1e-9);
 });
