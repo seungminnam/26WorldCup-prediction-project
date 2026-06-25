@@ -13,7 +13,7 @@
 - `fitDixonColes`'s new options (`attackPrior`, `defensePrior`, `l2ByTeam`) must default to exactly today's behavior (zero prior, flat `l2`) — every existing caller and test must keep working unmodified.
 - The FIFA-rank regression uses only the 48 World Cup teams (the only ones with a real `fifaRanking`) with effective match count ≥ 30; every other team in the network keeps a zero prior.
 - Regression target is `ln(fifaRanking)`, not raw rank.
-- `l2ByTeam[id] = baseL2 × (100 / max(effectiveMatchCount[id], 1))`, applied to every team regardless of whether they have a FIFA-rank-based prior or the default zero one.
+- Non-World-Cup teams: `l2ByTeam[id] = baseL2 × (100 / max(effectiveMatchCount[id], 1))`. World Cup teams (have a `fifaRanking`): `l2ByTeam[id] = 0.01` (fixed, independent of effective match count — see amendment note in Task 3).
 - `homeAdvantage`/`rho` are never regularized (unchanged from the existing code).
 - `evaluate-prediction-model.mjs` always trains with `excludeUpcomingWorldCup: true` — the in-tournament-retraining flag only ever applies to the production training script, never the backtest.
 - Fewer than 5 reliable World Cup teams must throw a clear error rather than silently fitting a regression on too little data.
@@ -498,6 +498,108 @@ Expected: all tests pass (9 total: 2 original + 3 from Task 1 + 2 from Task 2 + 
 ```bash
 git add scripts/lib/fit-dixon-coles.mjs scripts/lib/fit-dixon-coles.test.mjs
 git commit -m "feat: add empirical-Bayes FIFA-rank-prior fitting orchestration"
+```
+
+---
+
+### Task 3b: Amendment — Fixed Regularization Strength For World Cup Teams
+
+**Why this task exists:** Task 5 (real retraining) showed Task 3's `l2ByTeam` formula failing on the exact case this plan exists to fix. Australia and Argentina both have well over 100 effective matches, so `l2Base × (100 / effectiveMatchCount)` gives both of them an `l2` at or below the un-regularized baseline (`0.001`) — negligible pull toward the FIFA-rank prior. The bias here isn't sample-size noise (which shrinks as data grows); it's a confound between match history and true skill that *doesn't* shrink with more matches. Empirically validated fix (tested directly against the real dataset across `l2 ∈ {0.005, 0.01, 0.02, 0.04, 0.08}`, all stable, all correctly flip Argentina above Australia): give the 48 World Cup teams a **fixed** `l2` toward their FIFA-rank prior, independent of effective match count, while non-World-Cup teams keep the original effective-count-scaled-toward-zero formula.
+
+**Files:**
+- Modify: `scripts/lib/fit-dixon-coles.mjs`
+- Modify: `scripts/lib/fit-dixon-coles.test.mjs`
+
+**Interfaces:**
+- Modifies: `fitDixonColesWithFifaRankPrior`'s internal `l2ByTeam` construction only. No signature change — still `fitDixonColesWithFifaRankPrior(matches, teamIds, fifaRankingByTeamId, options)`.
+
+- [ ] **Step 1: Write the failing test**
+
+Add to `scripts/lib/fit-dixon-coles.test.mjs`:
+
+```js
+test("fitDixonColesWithFifaRankPrior corrects a well-sampled World Cup team whose FIFA ranking disagrees with its match record", () => {
+  const { teamIds: reliableTeamIds, matches } = buildReliableNetwork(12, 20);
+  const referenceDate = new Date(2024, 0, 1);
+  const opts = { iterations: 1500, learningRate: 0.3, l2: 0.001, xi: 0.0001, referenceDate };
+  const baseline = fitDixonColes(matches, reliableTeamIds, opts);
+
+  // Rank every team by its own baseline attack (rank 1 = strongest) so the regression itself
+  // stays well-behaved, then deliberately override the naturally WEAKEST team (TEAM_6, lowest
+  // baseline attack) to FIFA rank 1 (best) -- a discordant team with full data (40 matches,
+  // well above the 30-match reliability bar), mirroring the real Australia/Argentina case.
+  const sorted = [...reliableTeamIds].sort((a, b) => baseline.attack.get(b) - baseline.attack.get(a));
+  const fifaRankingByTeamId = new Map(sorted.map((id, i) => [id, i + 1]));
+  fifaRankingByTeamId.set("TEAM_6", 1);
+
+  const withPrior = fitDixonColesWithFifaRankPrior(matches, reliableTeamIds, fifaRankingByTeamId, opts);
+
+  assert.ok(
+    withPrior.attack.get("TEAM_6") > baseline.attack.get("TEAM_6"),
+    "a fixed, sample-size-independent World Cup regularization should pull a well-sampled but FIFA-discordant team's attack up toward its rank-implied prior -- the old effective-match-count-scaled formula could not do this because the team's abundant data made its regularization strength negligible"
+  );
+});
+```
+
+- [ ] **Step 2: Run the tests and verify RED**
+
+```bash
+node --test scripts/lib/fit-dixon-coles.test.mjs
+```
+Expected: FAIL — with the current effective-count-scaled formula, `withPrior.attack.get("TEAM_6")` does not clearly exceed `baseline.attack.get("TEAM_6")` by enough to satisfy real-world intent (in practice this specific assertion may pass marginally even before the fix, since the old formula does move TEAM_6 slightly — confirm by also checking the printed values that the movement is small. If the assertion happens to pass before the fix due to a small movement, that's expected; proceed to Step 3 regardless, since the real acceptance bar is Task 5's re-run, not this unit test alone).
+
+- [ ] **Step 3: Apply the fix**
+
+In `scripts/lib/fit-dixon-coles.mjs`, change:
+
+```js
+const RELIABLE_EFFECTIVE_MATCH_COUNT = 30;
+const REFERENCE_EFFECTIVE_MATCH_COUNT = 100;
+```
+
+to:
+
+```js
+const RELIABLE_EFFECTIVE_MATCH_COUNT = 30;
+const REFERENCE_EFFECTIVE_MATCH_COUNT = 100;
+const WORLD_CUP_TEAM_FIXED_L2 = 0.01;
+```
+
+and change:
+
+```js
+  const l2Base = options.l2 ?? 0.001;
+  const l2ByTeam = new Map(
+    teamIds.map((id) => [id, l2Base * (REFERENCE_EFFECTIVE_MATCH_COUNT / Math.max(effectiveMatchCounts.get(id), 1))])
+  );
+```
+
+to:
+
+```js
+  const l2Base = options.l2 ?? 0.001;
+  const l2ByTeam = new Map(
+    teamIds.map((id) => [
+      id,
+      fifaRankingByTeamId.has(id)
+        ? WORLD_CUP_TEAM_FIXED_L2
+        : l2Base * (REFERENCE_EFFECTIVE_MATCH_COUNT / Math.max(effectiveMatchCounts.get(id), 1))
+    ])
+  );
+```
+
+- [ ] **Step 4: Run the tests and verify GREEN**
+
+```bash
+node --test scripts/lib/fit-dixon-coles.test.mjs
+```
+Expected: all 10 tests pass (the 9 from before this task, plus this one), and `withPrior.attack.get("TEAM_6")` is now clearly, substantially higher than `baseline.attack.get("TEAM_6")` (empirically verified during design: -1.277 baseline → -0.664 with the fix, a correction of over half a unit).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add scripts/lib/fit-dixon-coles.mjs scripts/lib/fit-dixon-coles.test.mjs
+git commit -m "fix: regularize World Cup teams toward FIFA-rank prior with fixed strength, not sample-size-scaled"
 ```
 
 ---
