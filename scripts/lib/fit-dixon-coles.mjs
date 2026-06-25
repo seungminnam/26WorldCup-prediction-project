@@ -47,7 +47,20 @@ function tauGradients(homeGoals, awayGoals, lambdaHome, lambdaAway, rho) {
   return { wrtLambdaHome: 0, wrtLambdaAway: 0, wrtRho: 0 };
 }
 
-export function fitDixonColes(matches, teamIds, { iterations = 300, learningRate = 0.1, l2 = 0.001, xi = 0.001, referenceDate } = {}) {
+export function fitDixonColes(
+  matches,
+  teamIds,
+  {
+    iterations = 300,
+    learningRate = 0.1,
+    l2 = 0.001,
+    xi = 0.001,
+    referenceDate,
+    attackPrior = new Map(teamIds.map((id) => [id, 0])),
+    defensePrior = new Map(teamIds.map((id) => [id, 0])),
+    l2ByTeam = new Map(teamIds.map((id) => [id, l2]))
+  } = {}
+) {
   const attack = new Map(teamIds.map((id) => [id, 0]));
   const defense = new Map(teamIds.map((id) => [id, 0]));
   let homeAdvantage = 0.2;
@@ -87,8 +100,9 @@ export function fitDixonColes(matches, teamIds, { iterations = 300, learningRate
     for (const id of teamIds) {
       const meanAttackGrad = attackGrad.get(id) / totalWeight;
       const meanDefenseGrad = defenseGrad.get(id) / totalWeight;
-      attack.set(id, attack.get(id) + learningRate * (meanAttackGrad - 2 * l2 * attack.get(id)));
-      defense.set(id, defense.get(id) + learningRate * (meanDefenseGrad - 2 * l2 * defense.get(id)));
+      const teamL2 = l2ByTeam.get(id);
+      attack.set(id, attack.get(id) + learningRate * (meanAttackGrad - 2 * teamL2 * (attack.get(id) - attackPrior.get(id))));
+      defense.set(id, defense.get(id) + learningRate * (meanDefenseGrad - 2 * teamL2 * (defense.get(id) - defensePrior.get(id))));
     }
     homeAdvantage += learningRate * (homeAdvantageGrad / totalWeight);
     rho += learningRate * (rhoGrad / totalWeight);

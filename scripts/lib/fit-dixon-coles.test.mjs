@@ -169,3 +169,69 @@ test("linearRegression fits a least-squares line through noisy points", () => {
   assert.ok(Math.abs(slope - 1.94) < 1e-9);
   assert.ok(Math.abs(intercept - 0.15) < 1e-9);
 });
+
+test("fitDixonColes pulls a data-poor team toward an explicit prior instead of toward zero", () => {
+  const teamIds = ["RICH", "POOR"];
+  const referenceDate = new Date(2024, 0, 1);
+  const matches = [];
+
+  // RICH has plenty of evenly-matched data anchoring it near 0.3/0.1.
+  for (let round = 0; round < 40; round += 1) {
+    matches.push({
+      date: new Date(2023, 0, 1 + round),
+      homeTeamId: "RICH",
+      awayTeamId: round % 2 === 0 ? "NEUTRAL_A" : "NEUTRAL_B",
+      homeGoals: 2,
+      awayGoals: 1,
+      isNeutralVenue: true
+    });
+  }
+  // POOR has exactly one match, won big -- alone, a zero-prior fit would read this as a very strong attacker.
+  matches.push({
+    date: new Date(2023, 6, 1),
+    homeTeamId: "POOR",
+    awayTeamId: "NEUTRAL_A",
+    homeGoals: 6,
+    awayGoals: 0,
+    isNeutralVenue: true
+  });
+
+  const allTeamIds = ["RICH", "POOR", "NEUTRAL_A", "NEUTRAL_B"];
+  const attackPrior = new Map(allTeamIds.map((id) => [id, id === "POOR" ? -0.5 : 0]));
+  const defensePrior = new Map(allTeamIds.map((id) => [id, 0]));
+  const l2ByTeam = new Map(allTeamIds.map((id) => [id, id === "POOR" ? 0.5 : 0.001]));
+
+  const withPrior = fitDixonColes(matches, allTeamIds, {
+    iterations: 2000,
+    learningRate: 0.3,
+    l2: 0.001,
+    xi: 0.0001,
+    referenceDate,
+    attackPrior,
+    defensePrior,
+    l2ByTeam
+  });
+  const withoutPrior = fitDixonColes(matches, allTeamIds, {
+    iterations: 2000,
+    learningRate: 0.3,
+    l2: 0.001,
+    xi: 0.0001,
+    referenceDate
+  });
+
+  assert.ok(
+    withPrior.attack.get("POOR") < withoutPrior.attack.get("POOR"),
+    `expected the strong prior+regularization to pull POOR's attack down toward -0.5 (got ${withPrior.attack.get("POOR")}) compared to the zero-prior fit (got ${withoutPrior.attack.get("POOR")})`
+  );
+});
+
+test("fitDixonColes with default prior/l2ByTeam options behaves exactly as before", () => {
+  const teamIds = ["A", "B"];
+  const referenceDate = new Date(2024, 0, 1);
+  const matches = [{ date: new Date(2023, 0, 1), homeTeamId: "A", awayTeamId: "B", homeGoals: 2, awayGoals: 0, isNeutralVenue: true }];
+
+  const result = fitDixonColes(matches, teamIds, { iterations: 50, learningRate: 0.3, l2: 0.001, xi: 0.001, referenceDate });
+
+  assert.ok(Number.isFinite(result.attack.get("A")));
+  assert.ok(Number.isFinite(result.defense.get("B")));
+});
