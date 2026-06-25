@@ -320,3 +320,25 @@ test("fitDixonColesWithFifaRankPrior throws when fewer than 5 teams meet the rel
     /reliab/i
   );
 });
+
+test("fitDixonColesWithFifaRankPrior corrects a well-sampled World Cup team whose FIFA ranking disagrees with its match record", () => {
+  const { teamIds: reliableTeamIds, matches } = buildReliableNetwork(12, 20);
+  const referenceDate = new Date(2024, 0, 1);
+  const opts = { iterations: 1500, learningRate: 0.3, l2: 0.001, xi: 0.0001, referenceDate };
+  const baseline = fitDixonColes(matches, reliableTeamIds, opts);
+
+  // Rank every team by its own baseline attack (rank 1 = strongest) so the regression itself
+  // stays well-behaved, then deliberately override the naturally WEAKEST team (TEAM_6, lowest
+  // baseline attack) to FIFA rank 1 (best) -- a discordant team with full data (40 matches,
+  // well above the 30-match reliability bar), mirroring the real Australia/Argentina case.
+  const sorted = [...reliableTeamIds].sort((a, b) => baseline.attack.get(b) - baseline.attack.get(a));
+  const fifaRankingByTeamId = new Map(sorted.map((id, i) => [id, i + 1]));
+  fifaRankingByTeamId.set("TEAM_6", 1);
+
+  const withPrior = fitDixonColesWithFifaRankPrior(matches, reliableTeamIds, fifaRankingByTeamId, opts);
+
+  assert.ok(
+    withPrior.attack.get("TEAM_6") > baseline.attack.get("TEAM_6"),
+    "a fixed, sample-size-independent World Cup regularization should pull a well-sampled but FIFA-discordant team's attack up toward its rank-implied prior -- the old effective-match-count-scaled formula could not do this because the team's abundant data made its regularization strength negligible"
+  );
+});

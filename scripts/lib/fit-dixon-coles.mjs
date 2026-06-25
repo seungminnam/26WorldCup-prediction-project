@@ -113,6 +113,7 @@ export function fitDixonColes(
 
 const RELIABLE_EFFECTIVE_MATCH_COUNT = 30;
 const REFERENCE_EFFECTIVE_MATCH_COUNT = 100;
+const WORLD_CUP_TEAM_FIXED_L2 = 0.01;
 
 export function fitDixonColesWithFifaRankPrior(matches, teamIds, fifaRankingByTeamId, options) {
   const baseline = fitDixonColes(matches, teamIds, options);
@@ -145,7 +146,12 @@ export function fitDixonColesWithFifaRankPrior(matches, teamIds, fifaRankingByTe
 
   const l2Base = options.l2 ?? 0.001;
   const l2ByTeam = new Map(
-    teamIds.map((id) => [id, l2Base * (REFERENCE_EFFECTIVE_MATCH_COUNT / Math.max(effectiveMatchCounts.get(id), 1))])
+    teamIds.map((id) => [
+      id,
+      fifaRankingByTeamId.has(id)
+        ? WORLD_CUP_TEAM_FIXED_L2
+        : l2Base * (REFERENCE_EFFECTIVE_MATCH_COUNT / Math.max(effectiveMatchCounts.get(id), 1))
+    ])
   );
 
   return fitDixonColes(matches, teamIds, { ...options, attackPrior, defensePrior, l2ByTeam });
