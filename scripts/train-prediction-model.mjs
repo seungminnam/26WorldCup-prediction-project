@@ -1,17 +1,21 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
 import { loadCompetitiveMatches, TEAM_NAME_TO_ID } from "./lib/historical-results.mjs";
-import { fitDixonColes } from "./lib/fit-dixon-coles.mjs";
+import { fitDixonColesWithFifaRankPrior } from "./lib/fit-dixon-coles.mjs";
+import { teams } from "../packages/tournament-engine/src/data/teams.js";
 
 const WORLD_CUP_2026_TEAM_IDS = [...new Set(TEAM_NAME_TO_ID.values())];
 
 function main() {
+  const includeCurrentTournament = process.argv.includes("--include-current-tournament");
   const csvText = readFileSync("scripts/data/international-results.csv", "utf8");
-  const matches = loadCompetitiveMatches(csvText);
+  const matches = loadCompetitiveMatches(csvText, { excludeUpcomingWorldCup: !includeCurrentTournament });
   console.log(`Loaded ${matches.length} competitive historical matches.`);
+  console.log(includeCurrentTournament ? "Including already-played 2026 World Cup matches." : "Excluding the 2026 World Cup entirely (default).");
 
   const teamIds = [...new Set(matches.flatMap((match) => [match.homeTeamId, match.awayTeamId]))];
   const referenceDate = matches.reduce((latest, match) => (match.date > latest ? match.date : latest), matches[0].date);
+  const fifaRankingByTeamId = new Map(teams.map((team) => [team.id, team.fifaRanking]));
 
   const matchCountByTeam = new Map();
   for (const match of matches) {
@@ -24,7 +28,7 @@ function main() {
   }
 
   console.log("Fitting Dixon-Coles parameters (this takes a few minutes)...");
-  const fit = fitDixonColes(matches, teamIds, {
+  const fit = fitDixonColesWithFifaRankPrior(matches, teamIds, fifaRankingByTeamId, {
     iterations: 20000,
     learningRate: 0.3,
     l2: 0.001,
