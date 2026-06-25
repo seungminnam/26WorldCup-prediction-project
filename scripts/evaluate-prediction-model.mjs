@@ -1,8 +1,9 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
 import { computeLambda, scorelineProbability } from "../packages/tournament-engine/src/engine/dixon-coles.js";
+import { teams } from "../packages/tournament-engine/src/data/teams.js";
 import { accuracy, brierScore, logLoss } from "./lib/evaluation-metrics.mjs";
-import { fitDixonColes } from "./lib/fit-dixon-coles.mjs";
+import { fitDixonColesWithFifaRankPrior } from "./lib/fit-dixon-coles.mjs";
 import { loadCompetitiveMatches } from "./lib/historical-results.mjs";
 
 const HOLDOUT_CUTOFF = new Date("2021-01-01");
@@ -41,7 +42,8 @@ function main() {
   console.log(`Test: ${testMatches.length} matches on/after that date`);
 
   const trainTeamIds = new Set(trainMatches.flatMap((match) => [match.homeTeamId, match.awayTeamId]));
-  const fit = fitDixonColes(trainMatches, [...trainTeamIds], {
+  const fifaRankingByTeamId = new Map(teams.map((team) => [team.id, team.fifaRanking]));
+  const fit = fitDixonColesWithFifaRankPrior(trainMatches, [...trainTeamIds], fifaRankingByTeamId, {
     iterations: 20000,
     learningRate: 0.3,
     l2: 0.001,
