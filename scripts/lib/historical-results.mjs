@@ -69,7 +69,7 @@ function parseCsvLine(line) {
   return fields;
 }
 
-export function loadCompetitiveMatches(csvText) {
+export function loadCompetitiveMatches(csvText, { excludeUpcomingWorldCup = true } = {}) {
   const lines = csvText.trim().split("\n");
   const matches = [];
 
@@ -78,7 +78,7 @@ export function loadCompetitiveMatches(csvText) {
     const [date, homeTeam, awayTeam, homeScore, awayScore, tournament, , , neutral] = parseCsvLine(line);
 
     if (tournament === "Friendly") continue;
-    if (tournament === "FIFA World Cup" && date >= "2026-01-01") continue;
+    if (excludeUpcomingWorldCup && tournament === "FIFA World Cup" && date >= "2026-01-01") continue;
     if (homeScore === "NA" || awayScore === "NA") continue;
 
     if (!homeTeam || !awayTeam) continue;

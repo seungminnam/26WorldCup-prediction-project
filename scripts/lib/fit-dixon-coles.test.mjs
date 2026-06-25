@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { computeLambda, scorelineProbability } from "../../packages/tournament-engine/src/engine/dixon-coles.js";
-import { fitDixonColes } from "./fit-dixon-coles.mjs";
+import { fitDixonColes, computeEffectiveMatchCounts, linearRegression, fitDixonColesWithFifaRankPrior } from "./fit-dixon-coles.mjs";
 
 function createSeededRandom(seedText) {
   let state = 2166136261;
@@ -112,5 +112,233 @@ test("fitDixonColes weights recent matches more than old ones", () => {
   assert.ok(
     recentHeavy.attack.get("B") > recentHeavy.attack.get("A"),
     "three heavily-weighted recent B-dominant matches should outweigh one old A-dominant match"
+  );
+});
+
+test("computeEffectiveMatchCounts weights recent matches more than old ones, summed per team", () => {
+  const referenceDate = new Date(2026, 0, 1);
+  const matches = [
+    { date: new Date(2025, 11, 1), homeTeamId: "A", awayTeamId: "B" }, // 31 days before referenceDate
+    { date: new Date(2000, 0, 1), homeTeamId: "A", awayTeamId: "C" }, // ~26 years before referenceDate -- negligible weight
+    { date: new Date(2025, 10, 1), homeTeamId: "B", awayTeamId: "C" } // 61 days before referenceDate
+  ];
+
+  const counts = computeEffectiveMatchCounts(matches, ["A", "B", "C"], { xi: 0.01, referenceDate });
+
+  // A: one 31-day-old match + one ~26-year-old match (weight ~0).
+  // B: one 31-day-old match + one 61-day-old match -- strictly more total weight than A.
+  // C: one ~26-year-old match (weight ~0) + one 61-day-old match.
+  assert.ok(counts.get("A") > 0 && counts.get("B") > 0 && counts.get("C") > 0);
+  assert.ok(
+    counts.get("B") > counts.get("A"),
+    "B has two recent matches; A has only one recent match plus one negligibly-weighted ancient one, so B's total must be strictly higher"
+  );
+
+  const ancientMatchWeight = Math.exp((-0.01 * (referenceDate.getTime() - new Date(2000, 0, 1).getTime())) / (24 * 60 * 60 * 1000));
+  assert.ok(ancientMatchWeight < 1e-9, "sanity check: the year-2000 match's weight must itself be negligible for the assertion below to hold");
+
+  const expectedC = Math.exp(-0.01 * 61);
+  assert.ok(Math.abs(counts.get("C") - expectedC) < 1e-9);
+});
+
+test("linearRegression recovers a known slope and intercept from points exactly on a line", () => {
+  const points = [
+    { x: 0, y: 5 },
+    { x: 1, y: 8 },
+    { x: 2, y: 11 },
+    { x: 3, y: 14 }
+  ];
+
+  const { slope, intercept } = linearRegression(points);
+
+  assert.ok(Math.abs(slope - 3) < 1e-9);
+  assert.ok(Math.abs(intercept - 5) < 1e-9);
+});
+
+test("linearRegression fits a least-squares line through noisy points", () => {
+  const points = [
+    { x: 1, y: 2.1 },
+    { x: 2, y: 3.9 },
+    { x: 3, y: 6.2 },
+    { x: 4, y: 7.8 }
+  ];
+
+  const { slope, intercept } = linearRegression(points);
+
+  // Hand-computed OLS for these 4 points: slope = 1.94, intercept = 0.15.
+  assert.ok(Math.abs(slope - 1.94) < 1e-9);
+  assert.ok(Math.abs(intercept - 0.15) < 1e-9);
+});
+
+test("fitDixonColes pulls a data-poor team toward an explicit prior instead of toward zero", () => {
+  const teamIds = ["RICH", "POOR"];
+  const referenceDate = new Date(2024, 0, 1);
+  const matches = [];
+
+  // RICH has plenty of evenly-matched data anchoring it near 0.3/0.1.
+  for (let round = 0; round < 40; round += 1) {
+    matches.push({
+      date: new Date(2023, 0, 1 + round),
+      homeTeamId: "RICH",
+      awayTeamId: round % 2 === 0 ? "NEUTRAL_A" : "NEUTRAL_B",
+      homeGoals: 2,
+      awayGoals: 1,
+      isNeutralVenue: true
+    });
+  }
+  // POOR has exactly one match, won big -- alone, a zero-prior fit would read this as a very strong attacker.
+  matches.push({
+    date: new Date(2023, 6, 1),
+    homeTeamId: "POOR",
+    awayTeamId: "NEUTRAL_A",
+    homeGoals: 6,
+    awayGoals: 0,
+    isNeutralVenue: true
+  });
+
+  const allTeamIds = ["RICH", "POOR", "NEUTRAL_A", "NEUTRAL_B"];
+  const attackPrior = new Map(allTeamIds.map((id) => [id, id === "POOR" ? -0.5 : 0]));
+  const defensePrior = new Map(allTeamIds.map((id) => [id, 0]));
+  const l2ByTeam = new Map(allTeamIds.map((id) => [id, id === "POOR" ? 0.5 : 0.001]));
+
+  const withPrior = fitDixonColes(matches, allTeamIds, {
+    iterations: 2000,
+    learningRate: 0.3,
+    l2: 0.001,
+    xi: 0.0001,
+    referenceDate,
+    attackPrior,
+    defensePrior,
+    l2ByTeam
+  });
+  const withoutPrior = fitDixonColes(matches, allTeamIds, {
+    iterations: 2000,
+    learningRate: 0.3,
+    l2: 0.001,
+    xi: 0.0001,
+    referenceDate
+  });
+
+  assert.ok(
+    withPrior.attack.get("POOR") < withoutPrior.attack.get("POOR"),
+    `expected the strong prior+regularization to pull POOR's attack down toward -0.5 (got ${withPrior.attack.get("POOR")}) compared to the zero-prior fit (got ${withoutPrior.attack.get("POOR")})`
+  );
+});
+
+test("fitDixonColes with default prior/l2ByTeam options behaves exactly as before", () => {
+  const teamIds = ["A", "B"];
+  const referenceDate = new Date(2024, 0, 1);
+  const matches = [{ date: new Date(2023, 0, 1), homeTeamId: "A", awayTeamId: "B", homeGoals: 2, awayGoals: 0, isNeutralVenue: true }];
+
+  const result = fitDixonColes(matches, teamIds, { iterations: 50, learningRate: 0.3, l2: 0.001, xi: 0.001, referenceDate });
+
+  assert.ok(Number.isFinite(result.attack.get("A")));
+  assert.ok(Number.isFinite(result.defense.get("B")));
+});
+
+function buildReliableNetwork(reliableTeamCount, rounds) {
+  const teamIds = Array.from({ length: reliableTeamCount }, (_, index) => `TEAM_${index}`);
+  const matches = [];
+  let dayOffset = 0;
+
+  for (let round = 0; round < rounds; round += 1) {
+    for (let index = 0; index < teamIds.length; index += 1) {
+      const home = teamIds[index];
+      const away = teamIds[(index + 1) % teamIds.length];
+      // Lower-indexed teams score a bit more -- a real, fittable attack/defense gradient.
+      matches.push({
+        date: new Date(2023, 0, 1 + dayOffset),
+        homeTeamId: home,
+        awayTeamId: away,
+        homeGoals: Math.max(0, 2 - Math.floor(index / 3)),
+        awayGoals: Math.max(0, 1 + Math.floor(index / 4)),
+        isNeutralVenue: true
+      });
+      dayOffset += 1;
+    }
+  }
+  return { teamIds, matches };
+}
+
+test("fitDixonColesWithFifaRankPrior pulls a one-match team toward its FIFA-rank-implied value", () => {
+  // 20 rounds x 2 matches/team/round = 40 matches/team, comfortably above the 30-effective-match
+  // reliability bar (near-1.0 weight per match at this xi/timespan, verified empirically).
+  const { teamIds: reliableTeamIds, matches: reliableMatches } = buildReliableNetwork(12, 20);
+  const referenceDate = new Date(2024, 0, 1);
+
+  const allTeamIds = [...reliableTeamIds, "ONE_MATCH_WONDER"];
+  const matches = [
+    ...reliableMatches,
+    {
+      date: new Date(2023, 11, 1),
+      homeTeamId: "ONE_MATCH_WONDER",
+      awayTeamId: reliableTeamIds[0],
+      homeGoals: 9,
+      awayGoals: 0,
+      isNeutralVenue: true
+    }
+  ];
+
+  // Give ONE_MATCH_WONDER the worst possible FIFA ranking -- the prior should pull its
+  // freak 9-0 win back down, not let one match make it look like the best attacker in the fit.
+  const fifaRankingByTeamId = new Map(reliableTeamIds.map((id, index) => [id, index + 1]));
+  fifaRankingByTeamId.set("ONE_MATCH_WONDER", 200);
+
+  const withPrior = fitDixonColesWithFifaRankPrior(matches, allTeamIds, fifaRankingByTeamId, {
+    iterations: 1500,
+    learningRate: 0.3,
+    l2: 0.001,
+    xi: 0.0001,
+    referenceDate
+  });
+  const withoutPrior = fitDixonColes(matches, allTeamIds, {
+    iterations: 1500,
+    learningRate: 0.3,
+    l2: 0.001,
+    xi: 0.0001,
+    referenceDate
+  });
+
+  assert.ok(
+    withPrior.attack.get("ONE_MATCH_WONDER") < withoutPrior.attack.get("ONE_MATCH_WONDER"),
+    "the FIFA-rank prior should pull a sparse, lucky-result team's attack down from the plain zero-prior fit"
+  );
+});
+
+test("fitDixonColesWithFifaRankPrior throws when fewer than 5 teams meet the reliability bar", () => {
+  const { teamIds, matches } = buildReliableNetwork(3, 6);
+  const fifaRankingByTeamId = new Map(teamIds.map((id, index) => [id, index + 1]));
+
+  assert.throws(
+    () => fitDixonColesWithFifaRankPrior(matches, teamIds, fifaRankingByTeamId, {
+      iterations: 100,
+      learningRate: 0.3,
+      l2: 0.001,
+      xi: 0.0001,
+      referenceDate: new Date(2024, 0, 1)
+    }),
+    /reliab/i
+  );
+});
+
+test("fitDixonColesWithFifaRankPrior corrects a well-sampled World Cup team whose FIFA ranking disagrees with its match record", () => {
+  const { teamIds: reliableTeamIds, matches } = buildReliableNetwork(12, 20);
+  const referenceDate = new Date(2024, 0, 1);
+  const opts = { iterations: 1500, learningRate: 0.3, l2: 0.001, xi: 0.0001, referenceDate };
+  const baseline = fitDixonColes(matches, reliableTeamIds, opts);
+
+  // Rank every team by its own baseline attack (rank 1 = strongest) so the regression itself
+  // stays well-behaved, then deliberately override the naturally WEAKEST team (TEAM_6, lowest
+  // baseline attack) to FIFA rank 1 (best) -- a discordant team with full data (40 matches,
+  // well above the 30-match reliability bar), mirroring the real Australia/Argentina case.
+  const sorted = [...reliableTeamIds].sort((a, b) => baseline.attack.get(b) - baseline.attack.get(a));
+  const fifaRankingByTeamId = new Map(sorted.map((id, i) => [id, i + 1]));
+  fifaRankingByTeamId.set("TEAM_6", 1);
+
+  const withPrior = fitDixonColesWithFifaRankPrior(matches, reliableTeamIds, fifaRankingByTeamId, opts);
+
+  assert.ok(
+    withPrior.attack.get("TEAM_6") > baseline.attack.get("TEAM_6"),
+    "a fixed, sample-size-independent World Cup regularization should pull a well-sampled but FIFA-discordant team's attack up toward its rank-implied prior -- the old effective-match-count-scaled formula could not do this because the team's abundant data made its regularization strength negligible"
   );
 });
