@@ -76,3 +76,22 @@ test("TEAM_NAME_TO_ID covers every team whose project name differs from the data
   assert.equal(TEAM_NAME_TO_ID.get("Mexico"), "MEX");
   assert.equal(TEAM_NAME_TO_ID.get("Brazil"), "BRA");
 });
+
+test("excludeUpcomingWorldCup: false keeps already-played 2026 World Cup rows but still drops unplayed ones", () => {
+  const matches = loadCompetitiveMatches(sampleCsv, { excludeUpcomingWorldCup: false });
+
+  assert.ok(
+    matches.some((match) => match.homeTeamId === "MEX" && match.awayTeamId === "RSA"),
+    "the played 2026 World Cup match should now be kept"
+  );
+  assert.ok(
+    !matches.some((match) => match.homeTeamId === "KOR"),
+    "the unplayed (NA-score) 2026 World Cup match must still be dropped regardless of this flag"
+  );
+});
+
+test("excludeUpcomingWorldCup defaults to true, matching today's behavior", () => {
+  const matches = loadCompetitiveMatches(sampleCsv);
+
+  assert.ok(!matches.some((match) => match.homeTeamId === "MEX" && match.awayTeamId === "RSA"));
+});
