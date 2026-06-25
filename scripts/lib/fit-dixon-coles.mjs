@@ -113,6 +113,8 @@ export function fitDixonColes(
 
 const RELIABLE_EFFECTIVE_MATCH_COUNT = 30;
 const REFERENCE_EFFECTIVE_MATCH_COUNT = 100;
+// Validated against the real dataset across l2 in {0.005, 0.01, 0.02, 0.04, 0.08} -- all stable, all
+// correctly pull confederation-biased teams toward their FIFA-rank prior. 0.01 is a stable midpoint.
 const WORLD_CUP_TEAM_FIXED_L2 = 0.01;
 
 export function fitDixonColesWithFifaRankPrior(matches, teamIds, fifaRankingByTeamId, options) {
