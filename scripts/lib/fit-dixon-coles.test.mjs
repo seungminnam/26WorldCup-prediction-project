@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { computeLambda, scorelineProbability } from "../../packages/tournament-engine/src/engine/dixon-coles.js";
-import { fitDixonColes, computeEffectiveMatchCounts, linearRegression } from "./fit-dixon-coles.mjs";
+import { fitDixonColes, computeEffectiveMatchCounts, linearRegression, fitDixonColesWithFifaRankPrior } from "./fit-dixon-coles.mjs";
 
 function createSeededRandom(seedText) {
   let state = 2166136261;
@@ -234,4 +234,89 @@ test("fitDixonColes with default prior/l2ByTeam options behaves exactly as befor
 
   assert.ok(Number.isFinite(result.attack.get("A")));
   assert.ok(Number.isFinite(result.defense.get("B")));
+});
+
+function buildReliableNetwork(reliableTeamCount, rounds) {
+  const teamIds = Array.from({ length: reliableTeamCount }, (_, index) => `TEAM_${index}`);
+  const matches = [];
+  let dayOffset = 0;
+
+  for (let round = 0; round < rounds; round += 1) {
+    for (let index = 0; index < teamIds.length; index += 1) {
+      const home = teamIds[index];
+      const away = teamIds[(index + 1) % teamIds.length];
+      // Lower-indexed teams score a bit more -- a real, fittable attack/defense gradient.
+      matches.push({
+        date: new Date(2023, 0, 1 + dayOffset),
+        homeTeamId: home,
+        awayTeamId: away,
+        homeGoals: Math.max(0, 2 - Math.floor(index / 3)),
+        awayGoals: Math.max(0, 1 + Math.floor(index / 4)),
+        isNeutralVenue: true
+      });
+      dayOffset += 1;
+    }
+  }
+  return { teamIds, matches };
+}
+
+test("fitDixonColesWithFifaRankPrior pulls a one-match team toward its FIFA-rank-implied value", () => {
+  // 20 rounds x 2 matches/team/round = 40 matches/team, comfortably above the 30-effective-match
+  // reliability bar (near-1.0 weight per match at this xi/timespan, verified empirically).
+  const { teamIds: reliableTeamIds, matches: reliableMatches } = buildReliableNetwork(12, 20);
+  const referenceDate = new Date(2024, 0, 1);
+
+  const allTeamIds = [...reliableTeamIds, "ONE_MATCH_WONDER"];
+  const matches = [
+    ...reliableMatches,
+    {
+      date: new Date(2023, 11, 1),
+      homeTeamId: "ONE_MATCH_WONDER",
+      awayTeamId: reliableTeamIds[0],
+      homeGoals: 9,
+      awayGoals: 0,
+      isNeutralVenue: true
+    }
+  ];
+
+  // Give ONE_MATCH_WONDER the worst possible FIFA ranking -- the prior should pull its
+  // freak 9-0 win back down, not let one match make it look like the best attacker in the fit.
+  const fifaRankingByTeamId = new Map(reliableTeamIds.map((id, index) => [id, index + 1]));
+  fifaRankingByTeamId.set("ONE_MATCH_WONDER", 200);
+
+  const withPrior = fitDixonColesWithFifaRankPrior(matches, allTeamIds, fifaRankingByTeamId, {
+    iterations: 1500,
+    learningRate: 0.3,
+    l2: 0.001,
+    xi: 0.0001,
+    referenceDate
+  });
+  const withoutPrior = fitDixonColes(matches, allTeamIds, {
+    iterations: 1500,
+    learningRate: 0.3,
+    l2: 0.001,
+    xi: 0.0001,
+    referenceDate
+  });
+
+  assert.ok(
+    withPrior.attack.get("ONE_MATCH_WONDER") < withoutPrior.attack.get("ONE_MATCH_WONDER"),
+    "the FIFA-rank prior should pull a sparse, lucky-result team's attack down from the plain zero-prior fit"
+  );
+});
+
+test("fitDixonColesWithFifaRankPrior throws when fewer than 5 teams meet the reliability bar", () => {
+  const { teamIds, matches } = buildReliableNetwork(3, 6);
+  const fifaRankingByTeamId = new Map(teamIds.map((id, index) => [id, index + 1]));
+
+  assert.throws(
+    () => fitDixonColesWithFifaRankPrior(matches, teamIds, fifaRankingByTeamId, {
+      iterations: 100,
+      learningRate: 0.3,
+      l2: 0.001,
+      xi: 0.0001,
+      referenceDate: new Date(2024, 0, 1)
+    }),
+    /reliab/i
+  );
 });

@@ -110,3 +110,43 @@ export function fitDixonColes(
 
   return { attack, defense, homeAdvantage, rho };
 }
+
+const RELIABLE_EFFECTIVE_MATCH_COUNT = 30;
+const REFERENCE_EFFECTIVE_MATCH_COUNT = 100;
+
+export function fitDixonColesWithFifaRankPrior(matches, teamIds, fifaRankingByTeamId, options) {
+  const baseline = fitDixonColes(matches, teamIds, options);
+  const effectiveMatchCounts = computeEffectiveMatchCounts(matches, teamIds, options);
+
+  const reliableTeamIds = teamIds.filter(
+    (id) => fifaRankingByTeamId.has(id) && effectiveMatchCounts.get(id) >= RELIABLE_EFFECTIVE_MATCH_COUNT
+  );
+  if (reliableTeamIds.length < 5) {
+    throw new Error(
+      `Only ${reliableTeamIds.length} team(s) met the reliability bar (effective match count >= ${RELIABLE_EFFECTIVE_MATCH_COUNT}); need at least 5 to fit a trustworthy FIFA-rank regression.`
+    );
+  }
+
+  const attackRegression = linearRegression(
+    reliableTeamIds.map((id) => ({ x: Math.log(fifaRankingByTeamId.get(id)), y: baseline.attack.get(id) }))
+  );
+  const defenseRegression = linearRegression(
+    reliableTeamIds.map((id) => ({ x: Math.log(fifaRankingByTeamId.get(id)), y: baseline.defense.get(id) }))
+  );
+
+  const attackPrior = new Map(teamIds.map((id) => [id, 0]));
+  const defensePrior = new Map(teamIds.map((id) => [id, 0]));
+  for (const id of teamIds) {
+    if (!fifaRankingByTeamId.has(id)) continue;
+    const logRank = Math.log(fifaRankingByTeamId.get(id));
+    attackPrior.set(id, attackRegression.slope * logRank + attackRegression.intercept);
+    defensePrior.set(id, defenseRegression.slope * logRank + defenseRegression.intercept);
+  }
+
+  const l2Base = options.l2 ?? 0.001;
+  const l2ByTeam = new Map(
+    teamIds.map((id) => [id, l2Base * (REFERENCE_EFFECTIVE_MATCH_COUNT / Math.max(effectiveMatchCounts.get(id), 1))])
+  );
+
+  return fitDixonColes(matches, teamIds, { ...options, attackPrior, defensePrior, l2ByTeam });
+}
