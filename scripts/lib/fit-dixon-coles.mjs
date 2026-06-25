@@ -2,6 +2,7 @@ import { computeLambda, tauAdjustment } from "../../packages/tournament-engine/s
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
+// Teams in `matches` but absent from `teamIds` are silently skipped.
 export function computeEffectiveMatchCounts(matches, teamIds, { xi, referenceDate }) {
   const counts = new Map(teamIds.map((id) => [id, 0]));
 
