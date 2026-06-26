@@ -7,3 +7,26 @@ export function shouldShowPreMatchPrediction(status) {
 export function displayFixtureScore(status, goals) {
   return scoreBearingStatuses.has(status) && typeof goals === "number" ? goals : "-";
 }
+
+export function computeCompletedGroups(fixtures) {
+  const totalByGroup = new Map();
+  const completedByGroup = new Map();
+
+  for (const fixture of fixtures) {
+    if (!fixture.group) continue;
+    totalByGroup.set(fixture.group, (totalByGroup.get(fixture.group) ?? 0) + 1);
+    const isComplete =
+      fixture.status === "FT" && Number.isFinite(fixture.homeGoals) && Number.isFinite(fixture.awayGoals);
+    if (isComplete) {
+      completedByGroup.set(fixture.group, (completedByGroup.get(fixture.group) ?? 0) + 1);
+    }
+  }
+
+  const completedGroups = new Set();
+  for (const [group, total] of totalByGroup) {
+    if (total > 0 && completedByGroup.get(group) === total) {
+      completedGroups.add(group);
+    }
+  }
+  return completedGroups;
+}
