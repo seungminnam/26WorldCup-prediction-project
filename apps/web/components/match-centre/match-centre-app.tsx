@@ -12,7 +12,7 @@ import {
   teams as teamSeed
 } from "@wc/tournament-engine";
 import type { AppFixture, AppTeam, TournamentData } from "@/lib/tournament-data";
-import { displayFixtureScore, shouldShowPreMatchPrediction } from "@/lib/fixture-presentation";
+import { computeCompletedGroups, displayFixtureScore, shouldShowPreMatchPrediction } from "@/lib/fixture-presentation";
 import {
   formatDataLoadedAt,
   LIVE_REFRESH_INTERVAL_MS,
@@ -291,6 +291,8 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     () => buildStandings(completedFixtures(fixtures), teams),
     [fixtures, teams]
   );
+  const completedGroupSet = useMemo(() => computeCompletedGroups(fixtures), [fixtures]);
+  const [expandedFinishedGroups, setExpandedFinishedGroups] = useState<Set<string>>(new Set());
   const projectedStandings = useMemo(
     () => groupProjectedStandings(forecast?.groupProjections ?? []),
     [forecast]
@@ -333,6 +335,18 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     [mode, simulationCount, forecastFixtureList]
   );
   const isForecastStale = Boolean(forecast) && forecastSeed !== undefined && currentForecastSeed !== forecastSeed;
+
+  function toggleFinishedGroup(group: string) {
+    setExpandedFinishedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(group)) {
+        next.delete(group);
+      } else {
+        next.add(group);
+      }
+      return next;
+    });
+  }
 
   function runForecast() {
     const seed = buildForecastSeed({ mode, simulationCount, fixtureList: forecastFixtureList });
@@ -500,9 +514,19 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                 </div>
                 {isForecastStale && <ForecastStaleNotice onRerun={runForecast} />}
                 <div className="standings-grid">
-                  {projectedStandings.map((rows) => (
-                    <ProjectedStandingTable key={rows[0].group} rows={rows} teamsById={teamsById} />
-                  ))}
+                  {projectedStandings.map((rows) =>
+                    completedGroupSet.has(rows[0].group) ? (
+                      <FinishedGroupCard
+                        key={rows[0].group}
+                        rows={rows}
+                        teamsById={teamsById}
+                        expanded={expandedFinishedGroups.has(rows[0].group)}
+                        onToggle={() => toggleFinishedGroup(rows[0].group)}
+                      />
+                    ) : (
+                      <ProjectedStandingTable key={rows[0].group} rows={rows} teamsById={teamsById} />
+                    )
+                  )}
                 </div>
               </div>
             </div>
@@ -954,6 +978,32 @@ function ProjectedStandingTable({
           ))}
         </tbody>
       </table>
+    </article>
+  );
+}
+
+function FinishedGroupCard({
+  rows,
+  teamsById,
+  expanded,
+  onToggle
+}: {
+  rows: GroupProjectionRow[];
+  teamsById: Record<string, AppTeam>;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <article className="standing-card projected finished-group-card">
+      <button type="button" className="finished-collapsed" onClick={onToggle} aria-expanded={expanded}>
+        <span>
+          Group {rows[0].group} · Finished — see Standings for the final table
+        </span>
+        <span className={`finished-collapsed-chevron ${expanded ? "expanded" : ""}`} aria-hidden="true">
+          ▾
+        </span>
+      </button>
+      {expanded && <ProjectedStandingTable rows={rows} teamsById={teamsById} />}
     </article>
   );
 }

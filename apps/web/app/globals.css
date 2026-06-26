@@ -726,6 +726,39 @@ p {
   background: #eef8f6;
 }
 
+.finished-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: #eef8f6;
+  color: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.finished-collapsed:hover {
+  background: #e3f3f0;
+}
+
+.finished-collapsed-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.finished-collapsed-chevron.expanded {
+  transform: rotate(180deg);
+}
+
+.finished-group-card .projected-table {
+  margin-top: 0;
+}
+
 .standings-layout > .panel:first-child .standings-grid {
   grid-template-columns: 1fr;
 }
