@@ -26,6 +26,7 @@
     "ingestion:sync-espn-live": "npm run sync-espn-live --workspace apps/ingestion-worker --",
     "ingestion:compare-football-data": "npm run compare-football-data --workspace apps/ingestion-worker --",
     "ingestion:sync-espn-results": "npm run sync-espn-results --workspace apps/ingestion-worker",
+    "ingestion:resolve-knockout-slots": "node apps/ingestion-worker/src/cli/resolve-knockout-slots.js",
     "secret:scan": "bash scripts/secret-scan.sh",
     "test": "node --test",
     "check": "node --check src/**/*.js"
