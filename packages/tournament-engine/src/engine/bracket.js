@@ -1,6 +1,8 @@
 import { knockoutFixtures } from "../data/canonical-schedule.js";
 import { thirdPlaceAssignments } from "../data/third-place-assignments.js";
 import { pickKnockoutWinner, simulateScore } from "./predictor.js";
+import { rankAllGroups } from "./ranking.js";
+import { selectBestThirdPlaceTeams } from "./thirdPlace.js";
 
 const roundNamesByStage = {
   round_of_32: "Round of 32",
@@ -197,4 +199,105 @@ export function simulateKnockout(roundOf32, teamsById, random = Math.random) {
   }
 
   return { rounds, championId: final.winnerId, teamFinishes };
+}
+
+function isGroupComplete(groupMatches) {
+  return (
+    groupMatches.length > 0 &&
+    groupMatches.every((match) => Number.isFinite(match.homeGoals) && Number.isFinite(match.awayGoals))
+  );
+}
+
+export function resolveRealKnockoutSlots(teamList, matches) {
+  const groups = [...new Set(teamList.map((team) => team.group))].sort();
+  const groupMatches = matches.filter((match) => match.group);
+  const groupRankings = rankAllGroups(teamList, groupMatches);
+  const rankingByGroup = new Map(groupRankings.map((ranking) => [ranking[0].group, ranking]));
+  const knockoutByNumber = new Map(
+    matches.filter((match) => !match.group).map((match) => [match.matchNumber, match])
+  );
+
+  const completedGroups = groups.filter((group) =>
+    isGroupComplete(groupMatches.filter((match) => match.group === group))
+  );
+
+  const slots = new Map();
+  for (const group of completedGroups) {
+    const ranking = rankingByGroup.get(group);
+    slots.set(`1${group}`, ranking[0].teamId);
+    slots.set(`2${group}`, ranking[1].teamId);
+  }
+
+  let thirdAssignments = null;
+  if (completedGroups.length === groups.length) {
+    const bestThirds = selectBestThirdPlaceTeams(groupRankings);
+    for (const third of bestThirds) {
+      slots.set(`3${third.group}`, third.teamId);
+    }
+    const combination = bestThirds.map((third) => third.group).sort().join("");
+    thirdAssignments = thirdPlaceAssignments[combination];
+    if (!thirdAssignments) {
+      throw new Error(`No FIFA Annex C assignment for third-place groups ${combination}`);
+    }
+  }
+
+  const resolved = new Map();
+  const resolvedTeamsByNumber = new Map();
+
+  function recordTeams(matchNumber, homeTeamId, awayTeamId, isNew) {
+    resolvedTeamsByNumber.set(matchNumber, [homeTeamId, awayTeamId]);
+    if (isNew) {
+      resolved.set(matchNumber, { homeTeamId, awayTeamId });
+    }
+  }
+
+  for (const fixture of knockoutFixtures.slice(0, 16)) {
+    const existing = knockoutByNumber.get(fixture.matchNumber);
+    if (existing?.homeTeamId && existing?.awayTeamId) {
+      recordTeams(fixture.matchNumber, existing.homeTeamId, existing.awayTeamId, false);
+      continue;
+    }
+
+    const resolveSlot = (slot, otherSlot) =>
+      slot.startsWith("3 ")
+        ? thirdAssignments
+          ? slots.get(thirdAssignments[otherSlot])
+          : undefined
+        : slots.get(slot);
+
+    const homeTeamId = resolveSlot(fixture.homeSlot, fixture.awaySlot);
+    const awayTeamId = resolveSlot(fixture.awaySlot, fixture.homeSlot);
+    if (homeTeamId && awayTeamId) {
+      recordTeams(fixture.matchNumber, homeTeamId, awayTeamId, true);
+    }
+  }
+
+  for (const fixture of knockoutFixtures.slice(16)) {
+    const existing = knockoutByNumber.get(fixture.matchNumber);
+    if (existing?.homeTeamId && existing?.awayTeamId) {
+      recordTeams(fixture.matchNumber, existing.homeTeamId, existing.awayTeamId, false);
+      continue;
+    }
+
+    const resolveReference = (slot) => {
+      const sourceNumber = Number(slot.slice(1));
+      const sourceMatch = knockoutByNumber.get(sourceNumber);
+      const sourceTeams = resolvedTeamsByNumber.get(sourceNumber);
+      if (!sourceMatch?.winnerTeamId || !sourceTeams) {
+        return undefined;
+      }
+      const [homeId, awayId] = sourceTeams;
+      const winner = sourceMatch.winnerTeamId;
+      const loser = winner === homeId ? awayId : homeId;
+      return slot.startsWith("W") ? winner : loser;
+    };
+
+    const homeTeamId = resolveReference(fixture.homeSlot);
+    const awayTeamId = resolveReference(fixture.awaySlot);
+    if (homeTeamId && awayTeamId) {
+      recordTeams(fixture.matchNumber, homeTeamId, awayTeamId, true);
+    }
+  }
+
+  return resolved;
 }
