@@ -244,6 +244,8 @@ export function resolveRealKnockoutSlots(teamList, matches) {
   const resolved = new Map();
   const resolvedTeamsByNumber = new Map();
 
+  // resolvedTeamsByNumber tracks every match's team identity (for downstream W##/L## lookups);
+  // `resolved` only gets entries newly resolved THIS call, since that's the caller's write set.
   function recordTeams(matchNumber, homeTeamId, awayTeamId, isNew) {
     resolvedTeamsByNumber.set(matchNumber, [homeTeamId, awayTeamId]);
     if (isNew) {
