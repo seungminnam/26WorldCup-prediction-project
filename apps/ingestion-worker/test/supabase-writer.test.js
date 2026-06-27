@@ -263,6 +263,67 @@ function createRecordingClient(calls) {
   };
 }
 
+test("loadAllFixturesAndTeams reads the full fixture and team rows needed for knockout slot resolution", async () => {
+  const fixtureRows = [
+    {
+      id: "M-73",
+      match_number: 73,
+      group_code: null,
+      stage: "round_of_32",
+      home_team_id: null,
+      away_team_id: null,
+      home_slot: "2A",
+      away_slot: "2B",
+      home_goals: null,
+      away_goals: null,
+      winner_team_id: null
+    }
+  ];
+  const teamRows = [{ id: "MEX", group_code: "A", rating: 1715, fifa_ranking: 14 }];
+  const client = {
+    from(table) {
+      if (table === "fixture_cards") {
+        return { select: () => Promise.resolve({ data: fixtureRows, error: null }) };
+      }
+      if (table === "teams") {
+        return { select: () => Promise.resolve({ data: teamRows, error: null }) };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    }
+  };
+
+  const writer = createSupabaseWriter({ client });
+  const result = await writer.loadAllFixturesAndTeams();
+
+  assert.deepEqual(result.fixtureRows, fixtureRows);
+  assert.deepEqual(result.teamRows, teamRows);
+});
+
+test("applyResolveKnockoutSlotsPlan updates a fixture's resolved team IDs", async () => {
+  const calls = [];
+  const client = {
+    from(table) {
+      assert.equal(table, "fixtures");
+      return {
+        update(values) {
+          return {
+            eq(column, value) {
+              calls.push({ values, column, value });
+              return Promise.resolve({ error: null });
+            }
+          };
+        }
+      };
+    }
+  };
+
+  const writer = createSupabaseWriter({ client });
+  const result = await writer.applyResolveKnockoutSlotsPlan({ id: "M-73", homeTeamId: "KOR", awayTeamId: "CAN" });
+
+  assert.deepEqual(calls, [{ values: { home_team_id: "KOR", away_team_id: "CAN" }, column: "id", value: "M-73" }]);
+  assert.deepEqual(result, { fixtureId: "M-73", homeTeamId: "KOR", awayTeamId: "CAN" });
+});
+
 function createMappingClient(rowsByTable) {
   return {
     from(table) {

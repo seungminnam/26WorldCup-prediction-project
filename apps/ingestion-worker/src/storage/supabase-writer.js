@@ -55,6 +55,42 @@ export function createSupabaseWriter({ url, serviceRoleKey, client: injectedClie
       return new Map((result.data ?? []).map((row) => [row.id, row.name]));
     },
 
+    async loadAllFixturesAndTeams() {
+      const fixturesResult = await client
+        .from("fixture_cards")
+        .select(
+          "id,match_number,group_code,stage,home_team_id,away_team_id,home_slot,away_slot,home_goals,away_goals,winner_team_id"
+        );
+
+      if (fixturesResult.error) {
+        throw fixturesResult.error;
+      }
+
+      const teamsResult = await client.from("teams").select("id,group_code,rating,fifa_ranking");
+
+      if (teamsResult.error) {
+        throw teamsResult.error;
+      }
+
+      return {
+        fixtureRows: fixturesResult.data ?? [],
+        teamRows: teamsResult.data ?? []
+      };
+    },
+
+    async applyResolveKnockoutSlotsPlan(plan) {
+      const result = await client
+        .from("fixtures")
+        .update({ home_team_id: plan.homeTeamId, away_team_id: plan.awayTeamId })
+        .eq("id", plan.id);
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      return { fixtureId: plan.id, homeTeamId: plan.homeTeamId, awayTeamId: plan.awayTeamId };
+    },
+
     async recordIngestionRun(run) {
       const result = await client.rpc("record_ingestion_run", {
         p_source: run.source,
