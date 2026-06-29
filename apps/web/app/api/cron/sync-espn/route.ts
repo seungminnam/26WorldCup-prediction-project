@@ -7,6 +7,7 @@ import { findLiveSyncWindow } from "@/lib/live-sync-window";
 import { runSyncEspnLive } from "../../../../../ingestion-worker/src/cli/sync-espn-live-core.js";
 import { createEspnClient } from "../../../../../ingestion-worker/src/provider/espn-client.js";
 import { createSupabaseWriter } from "../../../../../ingestion-worker/src/storage/supabase-writer.js";
+import { resolveKnockoutSlots } from "../../../../../ingestion-worker/src/sync/resolve-knockout-slots.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -34,25 +35,40 @@ export async function GET(request: Request) {
     });
   }
 
+  const writer = createSupabaseWriter({
+    url: process.env.SUPABASE_URL,
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY
+  });
+
   try {
     const result = await runSyncEspnLive({
       argv: ["--apply"],
       client: createEspnClient(),
-      store: createSupabaseWriter({
-        url: process.env.SUPABASE_URL,
-        serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY
-      }),
+      store: writer,
       today: now
     });
 
     revalidatePath("/");
+
+    let knockoutResolution: { ok: boolean; resolvedCount?: number; error?: string };
+    try {
+      const { teamRows, fixtureRows } = await writer.loadAllFixturesAndTeams();
+      const resolution = await resolveKnockoutSlots({ teamRows, fixtureRows, writer, apply: true });
+      knockoutResolution = { ok: true, resolvedCount: resolution.resolvedCount };
+    } catch (error) {
+      knockoutResolution = {
+        ok: false,
+        error: error instanceof Error ? error.message : "Unknown knockout resolution error"
+      };
+    }
 
     return NextResponse.json({
       ok: true,
       mode: "apply",
       checkedAt: now.toISOString(),
       activeFixtureIds: syncWindow.activeFixtureIds,
-      result
+      result,
+      knockoutResolution
     });
   } catch (error) {
     return NextResponse.json(
