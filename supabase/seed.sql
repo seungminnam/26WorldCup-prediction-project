@@ -37,7 +37,7 @@ values
   ('QAT', 'QAT', 'Qatar', 'Qatar', 'QAT', 'QAT', 'B', 1485, 56, '🇶🇦'),
   ('SUI', 'SUI', 'Switzerland', 'Switzerland', 'SUI', 'SUI', 'B', 1720, 19, '🇨🇭'),
   ('HAI', 'HAI', 'Haiti', 'Haiti', 'HAI', 'HAI', 'C', 1420, 83, '🇭🇹'),
-  ('SCO', 'SCO', 'Scotland', 'Scotland', 'SCO', 'SCO', 'C', 1600, 42, '🏴'),
+  ('SCO', 'SCO', 'Scotland', 'Scotland', 'SCO', 'SCO', 'C', 1600, 42, '🏴󠁧󠁢󠁳󠁣󠁴󠁿'),
   ('BRA', 'BRA', 'Brazil', 'Brazil', 'BRA', 'BRA', 'C', 1860, 6, '🇧🇷'),
   ('MAR', 'MAR', 'Morocco', 'Morocco', 'MAR', 'MAR', 'C', 1740, 7, '🇲🇦'),
   ('USA', 'USA', 'United States', 'United States', 'USA', 'USA', 'D', 1690, 17, '🇺🇸'),
@@ -74,7 +74,7 @@ values
   ('COL', 'COL', 'Colombia', 'Colombia', 'COL', 'COL', 'K', 1760, 13, '🇨🇴'),
   ('GHA', 'GHA', 'Ghana', 'Ghana', 'GHA', 'GHA', 'L', 1575, 73, '🇬🇭'),
   ('PAN', 'PAN', 'Panama', 'Panama', 'PAN', 'PAN', 'L', 1500, 34, '🇵🇦'),
-  ('ENG', 'ENG', 'England', 'England', 'ENG', 'ENG', 'L', 1840, 4, '🏴'),
+  ('ENG', 'ENG', 'England', 'England', 'ENG', 'ENG', 'L', 1840, 4, '🏴󠁧󠁢󠁥󠁮󠁧󠁿'),
   ('CRO', 'CRO', 'Croatia', 'Croatia', 'CRO', 'CRO', 'L', 1755, 11, '🇭🇷')
 on conflict (id) do update set
   fifa_code = excluded.fifa_code,
