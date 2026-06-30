@@ -28,7 +28,7 @@ export type AppFixture = {
   awayGoals?: number;
   homePenalties?: number;
   awayPenalties?: number;
-  scorers: Array<{ teamId: string; player: string; minute: number }>;
+  scorers: Array<{ teamId: string; player: string; minute: number; stoppageMinute?: number; eventType?: string }>;
   cards: Array<{ teamId: string; player: string; minute: number; eventType: string }>;
 };
 
@@ -72,6 +72,7 @@ type MatchEventRow = {
   team_id: string | null;
   player_name: string;
   minute: number;
+  stoppage_minute: number | null;
   event_type: string;
 };
 
@@ -110,9 +111,10 @@ export async function getTournamentData(): Promise<TournamentData> {
     ).order("kickoff_at"),
     supabase
       .from("match_events")
-      .select("fixture_id,team_id,player_name,minute,event_type")
+      .select("fixture_id,team_id,player_name,minute,stoppage_minute,event_type")
       .in("event_type", ["goal", "own_goal", "penalty_goal", "yellow_card", "red_card"])
       .order("minute")
+      .order("stoppage_minute")
   ]);
 
   if (teamsResult.error || fixturesResult.error || eventsResult.error) {

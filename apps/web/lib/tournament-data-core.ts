@@ -7,7 +7,11 @@ export function mapFixtureRows(rows: any[], eventRows: any[]) {
       accumulator[row.fixture_id].push({
         teamId: row.team_id,
         player: row.player_name,
-        minute: row.minute
+        minute: row.minute,
+        eventType: row.event_type,
+        ...(typeof row.stoppage_minute === "number" && row.stoppage_minute > 0
+          ? { stoppageMinute: row.stoppage_minute }
+          : {})
       });
       return accumulator;
     }, {});

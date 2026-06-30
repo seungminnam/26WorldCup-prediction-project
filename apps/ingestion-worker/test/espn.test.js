@@ -109,6 +109,97 @@ test("classifies a red card event distinctly from a yellow card", () => {
   ]);
 });
 
+test("uses a fallback player name when ESPN omits athlete details", () => {
+  const event = {
+    id: "999002",
+    date: "2026-06-19T01:00Z",
+    season: { year: 2026 },
+    competitions: [
+      {
+        venue: { id: "1702", fullName: "Sample Ground" },
+        altGameNote: "FIFA World Cup, Group D",
+        status: { clock: 5400, type: { name: "STATUS_FULL_TIME" } },
+        competitors: [
+          { homeAway: "home", score: "1", team: { id: "660", displayName: "United States", abbreviation: "USA" } },
+          { homeAway: "away", score: "1", team: { id: "465", displayName: "Turkey", abbreviation: "TUR" } }
+        ],
+        details: [
+          {
+            type: { id: "94", text: "Yellow Card" },
+            clock: { value: 3756, displayValue: "63'" },
+            team: { id: "465" },
+            scoringPlay: false,
+            redCard: false,
+            yellowCard: true,
+            penaltyKick: false,
+            ownGoal: false
+          }
+        ]
+      }
+    ]
+  };
+
+  const result = normalizeEspnFixture(event);
+
+  assert.deepEqual(result.events, [
+    {
+      providerEventId: "999002:465:3756:94:0",
+      providerTeamId: "465",
+      playerName: "Unknown player",
+      assistPlayerName: null,
+      minute: 63,
+      stoppageMinute: null,
+      eventType: "yellow_card"
+    }
+  ]);
+});
+
+test("parses ESPN stoppage-time clock display values", () => {
+  const event = {
+    id: "999001",
+    date: "2026-06-28T19:00Z",
+    season: { year: 2026 },
+    competitions: [
+      {
+        venue: { id: "1701", fullName: "Sample Stadium" },
+        altGameNote: "FIFA World Cup, Round of 32",
+        status: { clock: 5400, type: { name: "STATUS_FULL_TIME" } },
+        competitors: [
+          { homeAway: "home", score: "2", team: { id: "205", displayName: "Brazil", abbreviation: "BRA" } },
+          { homeAway: "away", score: "1", team: { id: "627", displayName: "Japan", abbreviation: "JPN" } }
+        ],
+        details: [
+          {
+            type: { id: "70", text: "Goal" },
+            clock: { value: 5400, displayValue: "90'+5'" },
+            team: { id: "205" },
+            scoringPlay: true,
+            redCard: false,
+            yellowCard: false,
+            penaltyKick: false,
+            ownGoal: false,
+            athletesInvolved: [{ id: "269844", displayName: "Gabriel Martinelli" }]
+          }
+        ]
+      }
+    ]
+  };
+
+  const result = normalizeEspnFixture(event);
+
+  assert.deepEqual(result.events, [
+    {
+      providerEventId: "999001:205:5400:70:269844",
+      providerTeamId: "205",
+      playerName: "Gabriel Martinelli",
+      assistPlayerName: null,
+      minute: 90,
+      stoppageMinute: 5,
+      eventType: "goal"
+    }
+  ]);
+});
+
 test("normalizes a scheduled fixture with null scores and no events", async () => {
   const raw = await loadFixture("espn-scoreboard.sample.json");
   const result = normalizeEspnFixture(raw.events[1]);

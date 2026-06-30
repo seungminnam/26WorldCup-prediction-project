@@ -8,6 +8,11 @@ export function displayFixtureScore(status, goals) {
   return scoreBearingStatuses.has(status) && typeof goals === "number" ? goals : "-";
 }
 
+export function formatMatchMinute(event) {
+  const stoppageMinute = Number(event.stoppageMinute ?? 0);
+  return stoppageMinute > 0 ? `${event.minute}+${stoppageMinute}'` : `${event.minute}'`;
+}
+
 export function computeCompletedGroups(fixtures) {
   const totalByGroup = new Map();
   const completedByGroup = new Map();

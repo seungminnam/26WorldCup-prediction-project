@@ -140,7 +140,7 @@ function normalizeEvents(fixtureId, details) {
       return {
         providerEventId: `${fixtureId}:${teamId}:${Math.round(detail.clock?.value ?? 0)}:${detail.type?.id ?? "0"}:${athleteId}`,
         providerTeamId: teamId,
-        playerName: athlete?.displayName ?? null,
+        playerName: athlete?.displayName ?? "Unknown player",
         assistPlayerName: null,
         minute,
         stoppageMinute,
@@ -159,7 +159,7 @@ function classifyEventType(detail) {
 
 function parseClockDisplay(clock) {
   const display = clock?.displayValue ?? "";
-  const match = display.match(/^(\d+)(?:\+(\d+))?'?$/);
+  const match = display.match(/^(\d+)'?(?:\+(\d+)'?)?$/);
 
   if (!match) {
     return { minute: secondsToMinutes(clock) ?? 0, stoppageMinute: null };
