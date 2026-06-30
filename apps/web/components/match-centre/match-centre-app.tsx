@@ -327,7 +327,6 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     () => buildActualBracketMatches(fixtures, teams),
     [fixtures, teams]
   );
-  const thirdPlaceMatch = forecast?.sampleBracket.rounds["Third place"]?.[0];
   const selectedTeam = forecast?.probabilities.find(
     (team) => team.teamId === (selectedTeamId ?? forecast.probabilities[0]?.teamId)
   );
