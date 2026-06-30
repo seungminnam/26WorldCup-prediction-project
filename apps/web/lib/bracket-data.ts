@@ -57,6 +57,7 @@ export function deriveKnockoutWinner(fixture: {
     winnerId = awayTeamId;
   } else {
     if (homePenalties == null || awayPenalties == null) return { winnerId: null, loserId: null };
+    if (homePenalties === awayPenalties) return { winnerId: null, loserId: null };
     winnerId = homePenalties > awayPenalties ? homeTeamId : awayTeamId;
   }
   return { winnerId, loserId: winnerId === homeTeamId ? awayTeamId : homeTeamId };
@@ -102,7 +103,17 @@ export function buildActualBracketMatches(
 
   const result: Record<string, ActualBracketMatch[]> = {};
 
-  for (const canonical of knockoutFixtures) {
+  type CanonicalKnockoutFixture = {
+    matchNumber: number;
+    stage: string;
+    homeSlot: string;
+    awaySlot: string;
+    kickoff: string;
+    venue: string;
+    stadium: string;
+  };
+
+  for (const canonical of knockoutFixtures as CanonicalKnockoutFixture[]) {
     const roundName = ROUND_NAMES[canonical.stage];
     if (!roundName) continue;
 
@@ -111,7 +122,7 @@ export function buildActualBracketMatches(
     const homeTeamId = real?.homeTeamId ?? resolveSlot(canonical.homeSlot);
     const awayTeamId = real?.awayTeamId ?? resolveSlot(canonical.awaySlot);
 
-    const { winnerId, loserId: _ } = deriveKnockoutWinner(real ?? {});
+    const { winnerId } = deriveKnockoutWinner(real ?? {});
 
     if (!result[roundName]) result[roundName] = [];
     result[roundName].push({
@@ -127,7 +138,7 @@ export function buildActualBracketMatches(
       homeGoals: real?.homeGoals,
       awayGoals: real?.awayGoals,
       winnerTeamId: winnerId,
-      wentToPenalties: real?.homePenalties != null || real?.awayPenalties != null
+      wentToPenalties: real?.homePenalties != null && real?.awayPenalties != null
     });
   }
 
