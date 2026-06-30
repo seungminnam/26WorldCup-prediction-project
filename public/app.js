@@ -155,13 +155,110 @@ function renderDayPills() {
 }
 
 function scorerText(match) {
-  if (!match.scorers.length) {
-    return match.status === "FT" ? "No scorer data" : `${match.venue} · ${timeLabel(match.kickoff)}`;
+  return match.status === "FT" ? "No scorer data" : `${match.venue} · ${timeLabel(match.kickoff)}`;
+}
+
+function formatMatchMinute(event) {
+  const stoppageMinute = Number(event.stoppageMinute ?? 0);
+  return stoppageMinute > 0 ? `${event.minute}+${stoppageMinute}'` : `${event.minute}'`;
+}
+
+function hasPenaltyShootout(match) {
+  return Number.isFinite(match.homePenalties) && Number.isFinite(match.awayPenalties);
+}
+
+function isShootoutPenaltyScorer(match, scorer) {
+  return hasPenaltyShootout(match) && scorer.eventType === "penalty_goal" && scorer.minute >= 120;
+}
+
+function visibleGoalScorers(match) {
+  const seen = new Set();
+
+  return match.scorers.filter((scorer) => {
+    if (isShootoutPenaltyScorer(match, scorer)) return false;
+
+    const key = [
+      scorer.teamId,
+      scorer.player,
+      scorer.minute,
+      scorer.stoppageMinute ?? 0,
+      scorer.eventType ?? "goal"
+    ].join("|");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function compareScorers(left, right) {
+  if (left.minute !== right.minute) return left.minute - right.minute;
+  return (left.stoppageMinute ?? 0) - (right.stoppageMinute ?? 0);
+}
+
+function scorerBadge(scorer) {
+  if (scorer.eventType === "penalty_goal") return "PEN";
+  if (scorer.eventType === "own_goal") return "OG";
+  return "";
+}
+
+function eventSideClass(match, teamId) {
+  if (teamId === match.homeTeamId) return "home";
+  if (teamId === match.awayTeamId) return "away";
+  return "";
+}
+
+function penaltyShootoutSummary(match) {
+  if (!hasPenaltyShootout(match)) return "";
+
+  const winningTeamId =
+    match.homePenalties > match.awayPenalties
+      ? match.homeTeamId
+      : match.awayPenalties > match.homePenalties
+        ? match.awayTeamId
+        : null;
+  const label = winningTeamId ? `${teamName(winningTeamId)} advances on penalties` : "Penalty shootout";
+
+  return `
+    <div class="shootout-summary" aria-label="${label}">
+      <span>PK ${match.homePenalties}-${match.awayPenalties}</span>
+      <strong>${label}</strong>
+    </div>
+  `;
+}
+
+function fixtureEventPanel(match) {
+  const goalEvents = visibleGoalScorers(match);
+
+  if (!goalEvents.length) {
+    return `
+      <div class="fixture-events empty">
+        <span>Details</span>
+        <strong>${scorerText(match)}</strong>
+      </div>
+    `;
   }
 
-  return match.scorers
-    .map((scorer) => `${scorer.player} ${scorer.minute}'`)
-    .join(" · ");
+  return `
+    <div class="fixture-events">
+      <span>Goals</span>
+      <div class="fixture-event-list" aria-label="Goal events">
+        ${[...goalEvents]
+          .sort(compareScorers)
+          .map((scorer) => {
+            const badge = scorerBadge(scorer);
+            return `
+              <div class="fixture-event ${eventSideClass(match, scorer.teamId)}">
+                <span class="event-team-code">${scorer.teamId}</span>
+                <span class="event-minute">${formatMatchMinute(scorer)}</span>
+                <strong>${scorer.player}</strong>
+                ${badge ? `<span class="event-badge ${scorer.eventType}">${badge}</span>` : ""}
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+    </div>
+  `;
 }
 
 function scoreCell(match, side) {
@@ -198,21 +295,26 @@ function renderMatchCentre() {
             </div>
             <div class="teams-score">
               <div class="score-row">
-                <span class="team-inline">
-                  <span class="flag-badge">${teamFlag(match.homeTeamId)}</span>
-                  ${teamName(match.homeTeamId)}
-                </span>
+                <div class="team-column">
+                  <span class="team-inline">
+                    <span class="flag-badge">${teamFlag(match.homeTeamId)}</span>
+                    <span class="team-name">${teamName(match.homeTeamId)}</span>
+                  </span>
+                </div>
                 <span class="score">${scoreCell(match, "home")}</span>
               </div>
               <div class="score-row">
-                <span class="team-inline">
-                  <span class="flag-badge">${teamFlag(match.awayTeamId)}</span>
-                  ${teamName(match.awayTeamId)}
-                </span>
+                <div class="team-column">
+                  <span class="team-inline">
+                    <span class="flag-badge">${teamFlag(match.awayTeamId)}</span>
+                    <span class="team-name">${teamName(match.awayTeamId)}</span>
+                  </span>
+                </div>
                 <span class="score">${scoreCell(match, "away")}</span>
               </div>
+              ${penaltyShootoutSummary(match)}
             </div>
-            <div class="scorers">${scorerText(match)}</div>
+            ${fixtureEventPanel(match)}
           </article>
         `
       )

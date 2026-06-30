@@ -13,7 +13,12 @@ import {
   teams as teamSeed
 } from "@wc/tournament-engine";
 import type { AppFixture, AppTeam, TournamentData } from "@/lib/tournament-data";
-import { computeCompletedGroups, displayFixtureScore, shouldShowPreMatchPrediction } from "@/lib/fixture-presentation";
+import {
+  computeCompletedGroups,
+  displayFixtureScore,
+  formatMatchMinute,
+  shouldShowPreMatchPrediction
+} from "@/lib/fixture-presentation";
 import {
   formatDataLoadedAt,
   LIVE_REFRESH_INTERVAL_MS,
@@ -101,6 +106,7 @@ type MatchStakes = {
   awayTeamId: string;
   scenarios: MatchStakesScenario[];
 };
+type MatchScorer = AppFixture["scorers"][number];
 
 const fallbackTeams = teamSeed as AppTeam[];
 const fallbackFixtures = fixtureSeed.map((fixture: any) => ({
@@ -873,6 +879,10 @@ function FixtureCard({
         probabilities: prediction.probabilities
       })
     : [];
+  const goalEvents = visibleGoalScorers(match);
+  const homeScorers = scorersForTeam(goalEvents, match.homeTeamId);
+  const awayScorers = scorersForTeam(goalEvents, match.awayTeamId);
+  const shootout = penaltyShootoutSummary(match, teamsById);
 
   return (
     <article className={`fixture-card ${isToday ? "today" : ""}`}>
@@ -894,8 +904,20 @@ function FixtureCard({
           score={scoreCell(match, "away")}
           teamsById={teamsById}
         />
+        {shootout && (
+          <div className="shootout-summary" aria-label={shootout.label}>
+            <span>{shootout.score}</span>
+            <strong>{shootout.label}</strong>
+          </div>
+        )}
       </div>
-      <div className="scorers">{scorerText(match, viewerTimeZone)}</div>
+      <FixtureEventPanel
+        match={match}
+        homeScorers={homeScorers}
+        awayScorers={awayScorers}
+        teamsById={teamsById}
+        viewerTimeZone={viewerTimeZone}
+      />
       {prediction && (
         <div className="fixture-prediction">
           <div className="prediction-heading">
@@ -982,13 +1004,61 @@ function ScoreRow({
   score: string | number;
   teamsById: Record<string, AppTeam>;
 }) {
+  const label = teamId ? teamName(teamId, teamsById) : slotLabel(slot);
+
   return (
     <div className="score-row">
-      <span className="team-inline">
-        <span className="flag-badge">{teamId ? teamFlag(teamId, teamsById) : "·"}</span>
-        {teamId ? teamName(teamId, teamsById) : slotLabel(slot)}
-      </span>
+      <div className="team-column">
+        <span className="team-inline">
+          <span className="flag-badge">{teamId ? teamFlag(teamId, teamsById) : "·"}</span>
+          <span className="team-name">{label}</span>
+        </span>
+      </div>
       <span className="score">{score}</span>
+    </div>
+  );
+}
+
+function FixtureEventPanel({
+  match,
+  homeScorers,
+  awayScorers,
+  teamsById,
+  viewerTimeZone
+}: {
+  match: AppFixture;
+  homeScorers: MatchScorer[];
+  awayScorers: MatchScorer[];
+  teamsById: Record<string, AppTeam>;
+  viewerTimeZone: string;
+}) {
+  const events = [...homeScorers, ...awayScorers].sort(compareScorers);
+
+  if (events.length === 0) {
+    return (
+      <div className="fixture-events empty">
+        <span>Details</span>
+        <strong>{fixtureDetailText(match, viewerTimeZone)}</strong>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixture-events">
+      <span>Goals</span>
+      <div className="fixture-event-list" aria-label="Goal events">
+        {events.map((scorer, index) => (
+          <div
+            key={goalScorerKey(scorer, index)}
+            className={`fixture-event ${eventSideClass(match, scorer.teamId)}`}
+          >
+            <span className="event-team-code">{teamCodeForEvent(scorer.teamId, teamsById)}</span>
+            <span className="event-minute">{formatMatchMinute(scorer)}</span>
+            <strong>{scorer.player}</strong>
+            {scorerBadge(scorer) && <span className={`event-badge ${scorer.eventType}`}>{scorerBadge(scorer)}</span>}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1332,21 +1402,93 @@ function groupLabels(teamList: AppTeam[]) {
   return [...new Set(teamList.map((team) => team.group))].sort();
 }
 
-function scorerText(match: AppFixture, viewerTimeZone: string) {
-  if (!match.scorers.length) {
-    return match.status === "FT"
-      ? "No scorer data"
-      : `${match.venue} · ${formatKickoffTime(match.kickoff, viewerTimeZone)}`;
-  }
+function fixtureDetailText(match: AppFixture, viewerTimeZone: string) {
+  return match.status === "FT"
+    ? "No scorer data"
+    : `${match.venue} · ${formatKickoffTime(match.kickoff, viewerTimeZone)}`;
+}
 
-  return match.scorers.map((scorer) => `${scorer.player} ${scorer.minute}'`).join(" · ");
+function scorersForTeam(scorers: MatchScorer[], teamId: string | null) {
+  if (!teamId) return [];
+  return scorers.filter((scorer) => scorer.teamId === teamId);
+}
+
+function goalScorerKey(scorer: MatchScorer, index: number) {
+  return `${scorer.teamId}-${scorer.player}-${scorer.minute}-${scorer.stoppageMinute ?? 0}-${index}`;
+}
+
+function visibleGoalScorers(match: AppFixture) {
+  const seen = new Set<string>();
+
+  return match.scorers.filter((scorer) => {
+    if (isShootoutPenaltyScorer(match, scorer)) return false;
+
+    const key = [
+      scorer.teamId,
+      scorer.player,
+      scorer.minute,
+      scorer.stoppageMinute ?? 0,
+      scorer.eventType ?? "goal"
+    ].join("|");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function isShootoutPenaltyScorer(match: AppFixture, scorer: MatchScorer) {
+  return hasPenaltyShootout(match) && scorer.eventType === "penalty_goal" && scorer.minute >= 120;
+}
+
+function hasPenaltyShootout(match: AppFixture) {
+  return typeof match.homePenalties === "number" && typeof match.awayPenalties === "number";
+}
+
+function compareScorers(left: MatchScorer, right: MatchScorer) {
+  if (left.minute !== right.minute) return left.minute - right.minute;
+  return (left.stoppageMinute ?? 0) - (right.stoppageMinute ?? 0);
+}
+
+function scorerBadge(scorer: MatchScorer) {
+  if (scorer.eventType === "penalty_goal") return "PEN";
+  if (scorer.eventType === "own_goal") return "OG";
+  return "";
+}
+
+function eventSideClass(match: AppFixture, teamId: string) {
+  if (teamId === match.homeTeamId) return "home";
+  if (teamId === match.awayTeamId) return "away";
+  return "";
+}
+
+function teamCodeForEvent(teamId: string, teamsById: Record<string, AppTeam>) {
+  return teamsById[teamId]?.id ?? teamId;
+}
+
+function penaltyShootoutSummary(match: AppFixture, teamsById: Record<string, AppTeam>) {
+  if (!hasPenaltyShootout(match)) return null;
+
+  const homePenalties = match.homePenalties as number;
+  const awayPenalties = match.awayPenalties as number;
+  const score = `PK ${homePenalties}-${awayPenalties}`;
+  const winningTeamId =
+    homePenalties > awayPenalties
+      ? match.homeTeamId
+      : awayPenalties > homePenalties
+        ? match.awayTeamId
+        : null;
+
+  return {
+    score,
+    label: winningTeamId
+      ? `${teamName(winningTeamId, teamsById)} advances on penalties`
+      : "Penalty shootout"
+  };
 }
 
 function scoreCell(match: AppFixture, side: "home" | "away") {
   const goals = side === "home" ? match.homeGoals : match.awayGoals;
-  const penalties = side === "home" ? match.homePenalties : match.awayPenalties;
-  const score = displayFixtureScore(match.status, goals);
-  return typeof score === "number" && typeof penalties === "number" ? `${score} (${penalties})` : score;
+  return displayFixtureScore(match.status, goals);
 }
 
 function isGroupFixture(match: AppFixture): match is AppFixture & {
