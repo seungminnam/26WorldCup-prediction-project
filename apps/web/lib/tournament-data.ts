@@ -29,6 +29,7 @@ export type AppFixture = {
   homePenalties?: number;
   awayPenalties?: number;
   scorers: Array<{ teamId: string; player: string; minute: number; stoppageMinute?: number; eventType?: string }>;
+  shootoutEvents: Array<{ teamId: string; player: string; minute: number; stoppageMinute?: number; eventType: string }>;
   cards: Array<{ teamId: string; player: string; minute: number; eventType: string }>;
 };
 
@@ -83,6 +84,7 @@ const fallbackData: TournamentData = {
     venue: fixture.stadium,
     hostCity: fixture.venue,
     scorers: [...fixture.scorers],
+    shootoutEvents: [],
     cards: []
   })) as AppFixture[],
   source: "seed",
@@ -112,7 +114,7 @@ export async function getTournamentData(): Promise<TournamentData> {
     supabase
       .from("match_events")
       .select("fixture_id,team_id,player_name,minute,stoppage_minute,event_type")
-      .in("event_type", ["goal", "own_goal", "penalty_goal", "yellow_card", "red_card"])
+      .in("event_type", ["goal", "own_goal", "penalty_goal", "penalty_miss", "yellow_card", "red_card"])
       .order("minute")
       .order("stoppage_minute")
   ]);

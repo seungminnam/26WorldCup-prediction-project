@@ -38,11 +38,30 @@ export function createEspnClient({
         dates: "20260611-20260719",
         limit: 200
       });
-      return Array.isArray(payload.events) ? payload.events : [];
+      const events = Array.isArray(payload.events) ? payload.events : [];
+      return Promise.all(events.map(withShootoutSummary));
     }
   };
+
+  async function withShootoutSummary(event) {
+    if (!hasShootoutScore(event)) return event;
+
+    const summary = await request("summary", { event: event.id });
+    if (!Array.isArray(summary.shootout)) return event;
+
+    return {
+      ...event,
+      competitions: event.competitions?.map((competition, index) =>
+        index === 0 ? { ...competition, shootout: summary.shootout } : competition
+      )
+    };
+  }
 }
 
 function compactDate(isoDate) {
   return isoDate.replaceAll("-", "");
+}
+
+function hasShootoutScore(event) {
+  return event?.competitions?.[0]?.competitors?.some((competitor) => competitor.shootoutScore !== undefined);
 }

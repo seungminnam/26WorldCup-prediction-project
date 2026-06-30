@@ -743,16 +743,41 @@ p {
   min-width: 0;
   gap: 7px;
   align-self: stretch;
+  align-content: start;
   border-left: 1px solid var(--line);
   padding-left: 14px;
 }
 
-.fixture-events > span {
+.fixture-events-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fixture-events-heading > span,
+.shootout-disclosure button > span {
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 950;
   letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.fixture-events-heading button,
+.fixture-more-count {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--accent);
+  padding: 2px 7px;
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 950;
+}
+
+.fixture-events-heading button {
+  cursor: pointer;
 }
 
 .fixture-events.empty {
@@ -768,12 +793,13 @@ p {
 .fixture-event-list {
   display: grid;
   gap: 5px;
+  align-content: start;
 }
 
 .fixture-event {
   display: grid;
-  grid-template-columns: 38px 46px minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-columns: 68px 38px minmax(0, 1fr);
+  align-items: start;
   gap: 8px;
   min-width: 0;
   border-left: 3px solid var(--line);
@@ -790,9 +816,14 @@ p {
   border-left-color: #1c5d99;
 }
 
+.event-minutes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .event-team-code,
-.event-minute,
-.event-badge {
+.event-minute {
   font-variant-numeric: tabular-nums;
   font-weight: 950;
 }
@@ -803,6 +834,9 @@ p {
 }
 
 .event-minute {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   color: var(--accent);
 }
 
@@ -818,18 +852,120 @@ p {
   white-space: nowrap;
 }
 
-.event-badge {
+.event-minute em {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 2px 5px;
   color: #7b4d0c;
   background: #fff7e7;
   font-size: 0.62rem;
+  font-style: normal;
 }
 
-.event-badge.own_goal {
-  color: #6b3f74;
-  background: #f7eff9;
+.shootout-disclosure {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--line);
+  margin-top: 2px;
+  padding-top: 8px;
+}
+
+.shootout-disclosure button {
+  display: grid;
+  grid-template-columns: minmax(70px, 0.45fr) minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbfb;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 7px 8px;
+  text-align: left;
+  font: inherit;
+}
+
+.shootout-disclosure button strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--navy);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shootout-disclosure button i {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: #eef5fb;
+  color: #1c5d99;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.shootout-attempts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.shootout-attempts[hidden] {
+  display: none;
+}
+
+.shootout-attempt {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 6px;
+  font-size: 0.7rem;
+}
+
+.shootout-attempt.home {
+  border-left-color: var(--accent);
+}
+
+.shootout-attempt.away {
+  border-left-color: #1c5d99;
+}
+
+.shootout-attempt > span {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e9fbf7;
+  color: #0c7c40;
+  font-weight: 950;
+}
+
+.shootout-attempt.penalty_miss > span {
+  background: #fff0ec;
+  color: #b42318;
+}
+
+.shootout-attempt strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shootout-attempt em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 950;
+  text-align: right;
 }
 
 .scorers {
@@ -1394,6 +1530,10 @@ tbody tr.selected {
     border-top: 1px solid var(--line);
     padding-left: 0;
     padding-top: 8px;
+  }
+
+  .shootout-attempts {
+    grid-template-columns: 1fr;
   }
 
   .fixture-prediction {

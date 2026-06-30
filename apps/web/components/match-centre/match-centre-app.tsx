@@ -880,8 +880,6 @@ function FixtureCard({
       })
     : [];
   const goalEvents = visibleGoalScorers(match);
-  const homeScorers = scorersForTeam(goalEvents, match.homeTeamId);
-  const awayScorers = scorersForTeam(goalEvents, match.awayTeamId);
   const shootout = penaltyShootoutSummary(match, teamsById);
 
   return (
@@ -913,8 +911,7 @@ function FixtureCard({
       </div>
       <FixtureEventPanel
         match={match}
-        homeScorers={homeScorers}
-        awayScorers={awayScorers}
+        goalEvents={goalEvents}
         teamsById={teamsById}
         viewerTimeZone={viewerTimeZone}
       />
@@ -1021,20 +1018,23 @@ function ScoreRow({
 
 function FixtureEventPanel({
   match,
-  homeScorers,
-  awayScorers,
+  goalEvents,
   teamsById,
   viewerTimeZone
 }: {
   match: AppFixture;
-  homeScorers: MatchScorer[];
-  awayScorers: MatchScorer[];
+  goalEvents: MatchScorer[];
   teamsById: Record<string, AppTeam>;
   viewerTimeZone: string;
 }) {
-  const events = [...homeScorers, ...awayScorers].sort(compareScorers);
+  const [showAllGoals, setShowAllGoals] = useState(false);
+  const [showShootout, setShowShootout] = useState(false);
+  const groups = groupGoalScorers(goalEvents);
+  const visibleGroups = showAllGoals ? groups : groups.slice(0, 4);
+  const hiddenGoalCount = groups.length - visibleGroups.length;
+  const shootoutAttempts = shootoutAttemptsForDisplay(match);
 
-  if (events.length === 0) {
+  if (groups.length === 0 && shootoutAttempts.length === 0) {
     return (
       <div className="fixture-events empty">
         <span>Details</span>
@@ -1045,20 +1045,61 @@ function FixtureEventPanel({
 
   return (
     <div className="fixture-events">
-      <span>Goals</span>
-      <div className="fixture-event-list" aria-label="Goal events">
-        {events.map((scorer, index) => (
-          <div
-            key={goalScorerKey(scorer, index)}
-            className={`fixture-event ${eventSideClass(match, scorer.teamId)}`}
-          >
-            <span className="event-team-code">{teamCodeForEvent(scorer.teamId, teamsById)}</span>
-            <span className="event-minute">{formatMatchMinute(scorer)}</span>
-            <strong>{scorer.player}</strong>
-            {scorerBadge(scorer) && <span className={`event-badge ${scorer.eventType}`}>{scorerBadge(scorer)}</span>}
+      {groups.length > 0 && (
+        <>
+          <div className="fixture-events-heading">
+            <span>Goals</span>
+            {hiddenGoalCount > 0 && (
+              <button type="button" onClick={() => setShowAllGoals((current) => !current)}>
+                {showAllGoals ? "Show less" : `+${hiddenGoalCount} more`}
+              </button>
+            )}
           </div>
-        ))}
-      </div>
+          <div className="fixture-event-list" aria-label="Goal events">
+            {visibleGroups.map((group) => (
+              <div key={group.key} className={`fixture-event ${eventSideClass(match, group.teamId)}`}>
+                <span className="event-minutes">
+                  {group.events.map((scorer, index) => (
+                    <span key={goalScorerKey(scorer, index)} className="event-minute">
+                      {formatMatchMinute(scorer)}
+                      {scorerBadge(scorer) && <em>{scorerBadge(scorer)}</em>}
+                    </span>
+                  ))}
+                </span>
+                <span className="event-team-code">{teamCodeForEvent(group.teamId, teamsById)}</span>
+                <strong>{group.player}</strong>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {shootoutAttempts.length > 0 && (
+        <div className="shootout-disclosure">
+          <button
+            type="button"
+            aria-expanded={showShootout}
+            onClick={() => setShowShootout((current) => !current)}
+          >
+            <span>Shootout</span>
+            <strong>{shootoutAttemptsSummary(match, shootoutAttempts)}</strong>
+            <i aria-hidden="true">{showShootout ? "−" : "+"}</i>
+          </button>
+          {showShootout && (
+            <div className="shootout-attempts" aria-label="Penalty shootout attempts">
+              {shootoutAttempts.map((attempt, index) => (
+                <div
+                  key={`${attempt.teamId}-${attempt.player}-${attempt.eventType}-${index}`}
+                  className={`shootout-attempt ${eventSideClass(match, attempt.teamId)} ${attempt.eventType}`}
+                >
+                  <span>{attempt.eventType === "penalty_goal" ? "✓" : "×"}</span>
+                  <strong>{attempt.player}</strong>
+                  <em>{teamCodeForEvent(attempt.teamId, teamsById)}</em>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1408,11 +1449,6 @@ function fixtureDetailText(match: AppFixture, viewerTimeZone: string) {
     : `${match.venue} · ${formatKickoffTime(match.kickoff, viewerTimeZone)}`;
 }
 
-function scorersForTeam(scorers: MatchScorer[], teamId: string | null) {
-  if (!teamId) return [];
-  return scorers.filter((scorer) => scorer.teamId === teamId);
-}
-
 function goalScorerKey(scorer: MatchScorer, index: number) {
   return `${scorer.teamId}-${scorer.player}-${scorer.minute}-${scorer.stoppageMinute ?? 0}-${index}`;
 }
@@ -1449,6 +1485,22 @@ function compareScorers(left: MatchScorer, right: MatchScorer) {
   return (left.stoppageMinute ?? 0) - (right.stoppageMinute ?? 0);
 }
 
+function groupGoalScorers(scorers: MatchScorer[]) {
+  const groups = new Map<string, { key: string; teamId: string; player: string; events: MatchScorer[] }>();
+
+  scorers
+    .slice()
+    .sort(compareScorers)
+    .forEach((scorer) => {
+      const key = `${scorer.teamId}-${scorer.player}`;
+      const group = groups.get(key) ?? { key, teamId: scorer.teamId, player: scorer.player, events: [] };
+      group.events.push(scorer);
+      groups.set(key, group);
+    });
+
+  return [...groups.values()];
+}
+
 function scorerBadge(scorer: MatchScorer) {
   if (scorer.eventType === "penalty_goal") return "PEN";
   if (scorer.eventType === "own_goal") return "OG";
@@ -1463,6 +1515,43 @@ function eventSideClass(match: AppFixture, teamId: string) {
 
 function teamCodeForEvent(teamId: string, teamsById: Record<string, AppTeam>) {
   return teamsById[teamId]?.id ?? teamId;
+}
+
+function shootoutAttemptsForDisplay(match: AppFixture) {
+  if (!hasPenaltyShootout(match)) return [];
+
+  const deduped = new Map<string, AppFixture["shootoutEvents"][number]>();
+  match.shootoutEvents.forEach((attempt) => {
+    const key = `${attempt.teamId}-${attempt.player}-${attempt.eventType}`;
+    const existing = deduped.get(key);
+    if (!existing || (!existing.stoppageMinute && attempt.stoppageMinute)) {
+      deduped.set(key, attempt);
+    }
+  });
+
+  return [...deduped.values()].sort((left, right) => {
+    const order = (left.stoppageMinute ?? 0) - (right.stoppageMinute ?? 0);
+    const sideOrder = sideSortValue(match, left.teamId) - sideSortValue(match, right.teamId);
+    if (order !== 0) return order;
+    if (sideOrder !== 0) return sideOrder;
+    return left.player.localeCompare(right.player);
+  });
+}
+
+function sideSortValue(match: AppFixture, teamId: string) {
+  if (teamId === match.homeTeamId) return 0;
+  if (teamId === match.awayTeamId) return 1;
+  return 2;
+}
+
+function shootoutAttemptsSummary(match: AppFixture, attempts: AppFixture["shootoutEvents"]) {
+  const made = attempts.filter((attempt) => attempt.eventType === "penalty_goal").length;
+  const missed = attempts.filter((attempt) => attempt.eventType === "penalty_miss").length;
+  const total = made + missed;
+
+  if (total === 0 && hasPenaltyShootout(match)) return `PK ${match.homePenalties}-${match.awayPenalties}`;
+  if (missed === 0) return `${made} scored kicks`;
+  return `${made}/${total} logged`;
 }
 
 function penaltyShootoutSummary(match: AppFixture, teamsById: Record<string, AppTeam>) {

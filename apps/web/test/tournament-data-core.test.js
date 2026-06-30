@@ -51,11 +51,32 @@ test("maps shootout scores for completed knockout fixtures", () => {
       home_slot: "W93",
       away_slot: "W94"
     }],
-    []
+    [
+      {
+        fixture_id: "M-98",
+        team_id: "BRA",
+        player_name: "Casemiro",
+        minute: 120,
+        stoppage_minute: null,
+        event_type: "penalty_goal"
+      },
+      {
+        fixture_id: "M-98",
+        team_id: "ARG",
+        player_name: "Lionel Messi",
+        minute: 120,
+        stoppage_minute: null,
+        event_type: "penalty_miss"
+      }
+    ]
   );
 
   assert.equal(fixture.homePenalties, 4);
   assert.equal(fixture.awayPenalties, 3);
+  assert.deepEqual(fixture.shootoutEvents, [
+    { teamId: "BRA", player: "Casemiro", minute: 120, eventType: "penalty_goal" },
+    { teamId: "ARG", player: "Lionel Messi", minute: 120, eventType: "penalty_miss" }
+  ]);
 });
 
 test("separates card events from goal events into a distinct cards array", () => {

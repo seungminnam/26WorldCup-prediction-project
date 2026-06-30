@@ -190,6 +190,22 @@ function visibleGoalScorers(match) {
   });
 }
 
+function groupGoalScorers(scorers) {
+  const groups = new Map();
+
+  scorers
+    .slice()
+    .sort(compareScorers)
+    .forEach((scorer) => {
+      const key = `${scorer.teamId}-${scorer.player}`;
+      const group = groups.get(key) ?? { key, teamId: scorer.teamId, player: scorer.player, events: [] };
+      group.events.push(scorer);
+      groups.set(key, group);
+    });
+
+  return [...groups.values()];
+}
+
 function compareScorers(left, right) {
   if (left.minute !== right.minute) return left.minute - right.minute;
   return (left.stoppageMinute ?? 0) - (right.stoppageMinute ?? 0);
@@ -205,6 +221,43 @@ function eventSideClass(match, teamId) {
   if (teamId === match.homeTeamId) return "home";
   if (teamId === match.awayTeamId) return "away";
   return "";
+}
+
+function shootoutAttemptsForDisplay(match) {
+  if (!hasPenaltyShootout(match)) return [];
+
+  const deduped = new Map();
+  (match.shootoutEvents ?? []).forEach((attempt) => {
+    const key = `${attempt.teamId}-${attempt.player}-${attempt.eventType}`;
+    const existing = deduped.get(key);
+    if (!existing || (!existing.stoppageMinute && attempt.stoppageMinute)) {
+      deduped.set(key, attempt);
+    }
+  });
+
+  return [...deduped.values()].sort((left, right) => {
+    const order = (left.stoppageMinute ?? 0) - (right.stoppageMinute ?? 0);
+    const sideOrder = sideSortValue(match, left.teamId) - sideSortValue(match, right.teamId);
+    if (order !== 0) return order;
+    if (sideOrder !== 0) return sideOrder;
+    return left.player.localeCompare(right.player);
+  });
+}
+
+function sideSortValue(match, teamId) {
+  if (teamId === match.homeTeamId) return 0;
+  if (teamId === match.awayTeamId) return 1;
+  return 2;
+}
+
+function shootoutAttemptsSummary(match, attempts) {
+  const made = attempts.filter((attempt) => attempt.eventType === "penalty_goal").length;
+  const missed = attempts.filter((attempt) => attempt.eventType === "penalty_miss").length;
+  const total = made + missed;
+
+  if (total === 0 && hasPenaltyShootout(match)) return `PK ${match.homePenalties}-${match.awayPenalties}`;
+  if (missed === 0) return `${made} scored kicks`;
+  return `${made}/${total} logged`;
 }
 
 function penaltyShootoutSummary(match) {
@@ -227,9 +280,12 @@ function penaltyShootoutSummary(match) {
 }
 
 function fixtureEventPanel(match) {
-  const goalEvents = visibleGoalScorers(match);
+  const goalGroups = groupGoalScorers(visibleGoalScorers(match));
+  const visibleGoalGroups = goalGroups.slice(0, 4);
+  const hiddenGoalCount = goalGroups.length - visibleGoalGroups.length;
+  const shootoutAttempts = shootoutAttemptsForDisplay(match);
 
-  if (!goalEvents.length) {
+  if (!goalGroups.length && !shootoutAttempts.length) {
     return `
       <div class="fixture-events empty">
         <span>Details</span>
@@ -240,23 +296,67 @@ function fixtureEventPanel(match) {
 
   return `
     <div class="fixture-events">
-      <span>Goals</span>
-      <div class="fixture-event-list" aria-label="Goal events">
-        ${[...goalEvents]
-          .sort(compareScorers)
-          .map((scorer) => {
-            const badge = scorerBadge(scorer);
-            return `
-              <div class="fixture-event ${eventSideClass(match, scorer.teamId)}">
-                <span class="event-team-code">${scorer.teamId}</span>
-                <span class="event-minute">${formatMatchMinute(scorer)}</span>
-                <strong>${scorer.player}</strong>
-                ${badge ? `<span class="event-badge ${scorer.eventType}">${badge}</span>` : ""}
+      ${
+        goalGroups.length
+          ? `
+            <div class="fixture-events-heading">
+              <span>Goals</span>
+              ${hiddenGoalCount > 0 ? `<span class="fixture-more-count">+${hiddenGoalCount} more</span>` : ""}
+            </div>
+            <div class="fixture-event-list" aria-label="Goal events">
+              ${visibleGoalGroups
+                .map(
+                  (group) => `
+                    <div class="fixture-event ${eventSideClass(match, group.teamId)}">
+                      <span class="event-minutes">
+                        ${group.events
+                          .map((scorer) => {
+                            const badge = scorerBadge(scorer);
+                            return `
+                              <span class="event-minute">
+                                ${formatMatchMinute(scorer)}
+                                ${badge ? `<em>${badge}</em>` : ""}
+                              </span>
+                            `;
+                          })
+                          .join("")}
+                      </span>
+                      <span class="event-team-code">${group.teamId}</span>
+                      <strong>${group.player}</strong>
+                    </div>
+                  `
+                )
+                .join("")}
+            </div>
+          `
+          : ""
+      }
+      ${
+        shootoutAttempts.length
+          ? `
+            <div class="shootout-disclosure">
+              <button type="button" aria-expanded="false" data-shootout-toggle>
+                <span>Shootout</span>
+                <strong>${shootoutAttemptsSummary(match, shootoutAttempts)}</strong>
+                <i aria-hidden="true">+</i>
+              </button>
+              <div class="shootout-attempts" aria-label="Penalty shootout attempts" hidden>
+                ${shootoutAttempts
+                  .map(
+                    (attempt) => `
+                      <div class="shootout-attempt ${eventSideClass(match, attempt.teamId)} ${attempt.eventType}">
+                        <span>${attempt.eventType === "penalty_goal" ? "✓" : "×"}</span>
+                        <strong>${attempt.player}</strong>
+                        <em>${attempt.teamId}</em>
+                      </div>
+                    `
+                  )
+                  .join("")}
               </div>
-            `;
-          })
-          .join("")}
-      </div>
+            </div>
+          `
+          : ""
+      }
     </div>
   `;
 }
@@ -320,6 +420,16 @@ function renderMatchCentre() {
       )
       .join("")}
   `;
+
+  matchList.querySelectorAll("[data-shootout-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const attempts = button.parentElement?.querySelector(".shootout-attempts");
+      const expanded = button.getAttribute("aria-expanded") === "true";
+      button.setAttribute("aria-expanded", String(!expanded));
+      button.querySelector("i").textContent = expanded ? "+" : "−";
+      if (attempts) attempts.hidden = expanded;
+    });
+  });
 }
 
 function groupLabels() {
