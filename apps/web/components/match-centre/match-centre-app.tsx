@@ -6,6 +6,7 @@ import {
   buildGroupTable,
   fixtures as fixtureSeed,
   isHostNationFixture,
+  knockoutFixtures,
   predictMatch,
   rankGroup,
   runMonteCarlo,
@@ -20,6 +21,8 @@ import {
   shouldRefreshLiveData
 } from "@/lib/live-refresh";
 import { buildOutcomePresentation, formatPercentagePointDelta } from "@/lib/prediction-presentation";
+import { buildActualBracketMatches } from "@/lib/bracket-data";
+import type { ActualBracketMatch } from "@/lib/bracket-data";
 import {
   detectViewerTimeZone,
   formatKickoffDateKey,
@@ -196,6 +199,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
   const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>();
   const [forecast, setForecast] = useState<ForecastResult | undefined>();
   const [forecastSeed, setForecastSeed] = useState<string | undefined>();
+  const [expandedBracketMatches, setExpandedBracketMatches] = useState<Set<number>>(new Set());
   const bracketRef = useRef<HTMLDivElement | null>(null);
   const datePillRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -319,6 +323,10 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
       ),
     [forecastProbabilitiesByTeamId, simulationFixtures, teams, teamsById, visibleMatches]
   );
+  const actualBracketRounds = useMemo(
+    () => buildActualBracketMatches(fixtures, teams),
+    [fixtures, teams]
+  );
   const thirdPlaceMatch = forecast?.sampleBracket.rounds["Third place"]?.[0];
   const selectedTeam = forecast?.probabilities.find(
     (team) => team.teamId === (selectedTeamId ?? forecast.probabilities[0]?.teamId)
@@ -344,6 +352,15 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
       } else {
         next.add(group);
       }
+      return next;
+    });
+  }
+
+  function toggleBracketMatch(matchNumber: number) {
+    setExpandedBracketMatches((current) => {
+      const next = new Set(current);
+      if (next.has(matchNumber)) next.delete(matchNumber);
+      else next.add(matchNumber);
       return next;
     });
   }
@@ -533,15 +550,15 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
           </section>
         )}
 
-        {activeTab === "bracket" && forecast && (
+        {activeTab === "bracket" && (
           <section className="tab-panel active">
             <div className="panel bracket-panel">
               <div className="section-heading">
                 <div>
                   <p className="eyebrow">Knockout path</p>
-                  <h2>Projected Bracket</h2>
+                  <h2>Tournament Bracket</h2>
                 </div>
-                <span>Sample scores from the latest forecast</span>
+                <span>Results + model predictions</span>
               </div>
               <div ref={bracketRef} className="bracket-stage">
                 <svg className="bracket-connectors" aria-hidden="true" />
@@ -549,29 +566,125 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                   {roundOrder.map((round) => (
                     <div key={round} className="round tree-round">
                       <h3>{round}</h3>
-                      {(forecast.sampleBracket.rounds[round] ?? []).map((match, index) => {
+                      {(actualBracketRounds[round] ?? []).map((match, index) => {
                         const meta = bracketRoundMeta[round];
+                        const isFt = match.winnerTeamId != null;
+                        const isUpcoming = !isFt && match.homeTeamId != null && match.awayTeamId != null;
+                        const isPending = !isFt && (match.homeTeamId == null || match.awayTeamId == null);
+                        const expanded = expandedBracketMatches.has(match.matchNumber);
+
+                        const homeTeam = match.homeTeamId ? teamsById[match.homeTeamId] : undefined;
+                        const awayTeam = match.awayTeamId ? teamsById[match.awayTeamId] : undefined;
+                        const prediction =
+                          homeTeam && awayTeam
+                            ? predictMatch(homeTeam, awayTeam, { isNeutralVenue: true })
+                            : undefined;
+                        const outcomes = prediction && homeTeam && awayTeam
+                          ? buildOutcomePresentation({ homeName: homeTeam.name, awayName: awayTeam.name, probabilities: prediction.probabilities })
+                          : [];
+
+                        const modelCorrect =
+                          isFt && prediction && homeTeam && awayTeam
+                            ? (prediction.probabilities.homeWin >= prediction.probabilities.awayWin
+                                ? match.winnerTeamId === match.homeTeamId
+                                : match.winnerTeamId === match.awayTeamId)
+                            : null;
+
+                        const favoredWinPct = prediction
+                          ? Math.max(prediction.probabilities.homeWin, prediction.probabilities.awayWin)
+                          : null;
+                        const favoredName = prediction && homeTeam && awayTeam
+                          ? (prediction.probabilities.homeWin >= prediction.probabilities.awayWin ? homeTeam.name : awayTeam.name)
+                          : null;
+
                         return (
                           <article
-                            key={match.id}
-                            className="bracket-match"
+                            key={match.matchNumber}
+                            className={`bracket-match${isFt ? " ft" : ""}${isPending ? " pending" : ""}`}
                             style={{ "--row-start": index * meta.interval + meta.offset } as React.CSSProperties}
                           >
                             <div className="match-location">
-                              {match.stadium}, {match.venue} · M{match.id}
+                              {match.stadium}, {match.venue} · M{match.matchNumber}
                             </div>
-                            {match.teamIds.map((teamId) => (
-                              <div
-                                key={teamId}
-                                className={`match-chip ${match.winnerId === teamId ? "winner" : ""}`}
-                              >
-                                <span>
-                                  {teamFlag(teamId, teamsById)} {teamName(teamId, teamsById)}
-                                </span>
-                                <span>{match.score?.[teamId] ?? "-"}</span>
-                              </div>
-                            ))}
-                            {match.wentToPenalties && <div className="penalty-note">Advanced after penalties</div>}
+
+                            <div className={`match-chip${isFt && match.winnerTeamId === match.homeTeamId ? " winner" : ""}${isPending && !match.homeTeamId ? " pending" : ""}`}>
+                              <span>
+                                {homeTeam ? (
+                                  <>{teamFlag(match.homeTeamId!, teamsById)} {homeTeam.name}</>
+                                ) : (
+                                  <span className="pending">{match.homeDisplay}</span>
+                                )}
+                              </span>
+                              <span>{match.homeGoals ?? "-"}</span>
+                            </div>
+
+                            <div className={`match-chip${isFt && match.winnerTeamId === match.awayTeamId ? " winner" : ""}${isPending && !match.awayTeamId ? " pending" : ""}`}>
+                              <span>
+                                {awayTeam ? (
+                                  <>{teamFlag(match.awayTeamId!, teamsById)} {awayTeam.name}</>
+                                ) : (
+                                  <span className="pending">{match.awayDisplay}</span>
+                                )}
+                              </span>
+                              <span>{match.awayGoals ?? "-"}</span>
+                            </div>
+
+                            {match.wentToPenalties && (
+                              <div className="penalty-note">Advanced after penalties</div>
+                            )}
+
+                            {prediction && (
+                              <>
+                                <div
+                                  className="bracket-model-row"
+                                  onClick={() => toggleBracketMatch(match.matchNumber)}
+                                  role="button"
+                                  aria-expanded={expanded}
+                                >
+                                  <span>
+                                    {favoredName} {favoredWinPct != null ? `${Math.round(favoredWinPct * 100)}%` : ""}
+                                    {isFt ? (
+                                      modelCorrect
+                                        ? <span className="bracket-model-correct"> ✓</span>
+                                        : <span className="bracket-model-wrong"> ✗</span>
+                                    ) : null}
+                                  </span>
+                                  <span>{expanded ? "▴" : "▾"}</span>
+                                </div>
+
+                                {expanded && (
+                                  <div className="bracket-model-expanded">
+                                    <div className="probability-legend" aria-label="Match outcome probabilities">
+                                      {outcomes.map((outcome) => (
+                                        <div key={outcome.key} className={`probability-legend-item ${outcome.key}`}>
+                                          <span className="probability-name">
+                                            <i className={`probability-dot ${outcome.key}`} aria-hidden="true" />
+                                            {outcome.label}
+                                          </span>
+                                          <strong>{outcome.percentLabel}</strong>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div className="probability-ribbon" aria-hidden="true">
+                                      {outcomes.map((outcome) => (
+                                        <span
+                                          key={outcome.key}
+                                          className={`probability-segment ${outcome.key}`}
+                                          style={{ width: outcome.width }}
+                                        />
+                                      ))}
+                                    </div>
+                                    <div className="likely-scorelines" aria-label="Most likely scorelines">
+                                      {prediction.scorelines.map((scoreline) => (
+                                        <span key={`${scoreline.homeGoals}-${scoreline.awayGoals}`}>
+                                          {scoreline.homeGoals}-{scoreline.awayGoals} {Math.round(scoreline.probability * 100)}%
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </article>
                         );
                       })}
@@ -579,30 +692,31 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
                   ))}
                 </div>
               </div>
-              {thirdPlaceMatch && (
-                <div className="third-place-bracket">
-                  <h3>Third place</h3>
-                  <article className="bracket-match">
-                    <div className="match-location">
-                      {thirdPlaceMatch.stadium}, {thirdPlaceMatch.venue} · M{thirdPlaceMatch.id}
-                    </div>
-                    {thirdPlaceMatch.teamIds.map((teamId) => (
-                      <div
-                        key={teamId}
-                        className={`match-chip ${thirdPlaceMatch.winnerId === teamId ? "winner" : ""}`}
-                      >
-                        <span>
-                          {teamFlag(teamId, teamsById)} {teamName(teamId, teamsById)}
-                        </span>
-                        <span>{thirdPlaceMatch.score?.[teamId] ?? "-"}</span>
+
+              {/* Third-place match */}
+              {(() => {
+                const r3 = (actualBracketRounds["Third place"] ?? [])[0];
+                if (!r3) return null;
+                const homeTeam = r3.homeTeamId ? teamsById[r3.homeTeamId] : undefined;
+                const awayTeam = r3.awayTeamId ? teamsById[r3.awayTeamId] : undefined;
+                return (
+                  <div className="third-place-bracket">
+                    <h3>Third place</h3>
+                    <article className={`bracket-match${r3.winnerTeamId ? " ft" : ""}`}>
+                      <div className="match-location">{r3.stadium}, {r3.venue} · M{r3.matchNumber}</div>
+                      <div className={`match-chip${r3.winnerTeamId === r3.homeTeamId ? " winner" : ""}`}>
+                        <span>{homeTeam ? <>{teamFlag(r3.homeTeamId!, teamsById)} {homeTeam.name}</> : <span className="pending">{r3.homeDisplay}</span>}</span>
+                        <span>{r3.homeGoals ?? "-"}</span>
                       </div>
-                    ))}
-                    {thirdPlaceMatch.wentToPenalties && (
-                      <div className="penalty-note">Advanced after penalties</div>
-                    )}
-                  </article>
-                </div>
-              )}
+                      <div className={`match-chip${r3.winnerTeamId === r3.awayTeamId ? " winner" : ""}`}>
+                        <span>{awayTeam ? <>{teamFlag(r3.awayTeamId!, teamsById)} {awayTeam.name}</> : <span className="pending">{r3.awayDisplay}</span>}</span>
+                        <span>{r3.awayGoals ?? "-"}</span>
+                      </div>
+                      {r3.wentToPenalties && <div className="penalty-note">Advanced after penalties</div>}
+                    </article>
+                  </div>
+                );
+              })()}
             </div>
           </section>
         )}

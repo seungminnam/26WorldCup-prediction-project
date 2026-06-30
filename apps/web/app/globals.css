@@ -1017,6 +1017,62 @@ button:disabled {
   font-weight: 800;
 }
 
+.bracket-match.ft {
+  border-color: var(--teal, #0f766e);
+}
+
+.bracket-match.pending {
+  opacity: 0.6;
+}
+
+.match-chip.pending {
+  color: var(--muted);
+  font-weight: 600;
+  font-style: italic;
+}
+
+.bracket-model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 0;
+  margin-top: 4px;
+  border-top: 1px dashed var(--line);
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.bracket-model-row:hover {
+  color: var(--teal, #0f766e);
+}
+
+.bracket-model-correct {
+  color: var(--win, #0f766e);
+  font-weight: 800;
+}
+
+.bracket-model-wrong {
+  color: #e05c5c;
+  font-weight: 800;
+}
+
+.bracket-model-expanded {
+  margin-top: 6px;
+  padding: 8px;
+  background: #f0fbf9;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.bracket-model-expanded .probability-legend,
+.bracket-model-expanded .probability-ribbon,
+.bracket-model-expanded .likely-scorelines {
+  margin-top: 4px;
+}
+
 .match-location {
   color: var(--muted);
   font-size: 0.72rem;
