@@ -111,7 +111,7 @@ export async function getTournamentData(): Promise<TournamentData> {
   const [teamsResult, fixturesResult, eventsResult] = await Promise.all([
     supabase.from("teams").select("id,name,group_code,rating,fifa_ranking,flag_emoji").order("group_code").order("id"),
     supabase.from("fixture_cards").select(
-      "id,match_number,group_code,stage,kickoff_at,status,home_goals,away_goals,home_penalties,away_penalties,elapsed_minutes,venue_name,venue_city,home_team_id,away_team_id,home_slot,away_slot"
+      "id,match_number,group_code,stage,kickoff_at,status,home_goals,away_goals,home_penalties,away_penalties,venue_name,venue_city,home_team_id,away_team_id,home_slot,away_slot,elapsed_minutes"
     ).order("kickoff_at"),
     supabase
       .from("match_events")
