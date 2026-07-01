@@ -15,7 +15,6 @@ select
   f.home_penalties,
   f.away_penalties,
   f.winner_team_id,
-  f.elapsed_minutes,
   f.result_verified_at,
   f.source,
   f.source_url,
@@ -32,7 +31,8 @@ select
   at.fifa_code as away_team_code,
   at.flag_emoji as away_team_flag,
   f.home_slot,
-  f.away_slot
+  f.away_slot,
+  f.elapsed_minutes
 from public.fixtures f
 left join public.venues v on v.id = f.venue_id
 left join public.teams ht on ht.id = f.home_team_id
