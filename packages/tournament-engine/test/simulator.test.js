@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { fixtures, teams } from "../src/data/index.js";
-import { pickMode, runMonteCarlo, summarizeGroupOutcome } from "../src/engine/simulator.js";
+import { pickMode, runMonteCarlo, runSnapshotMonteCarlo, summarizeGroupOutcome } from "../src/engine/simulator.js";
 
 test("pickMode returns the value with the highest count", () => {
   const histogram = new Map([
@@ -193,3 +193,51 @@ test("runMonteCarlo keeps two rivals' projected goal difference zero-sum consist
     `expected Canada's and Switzerland's projected goal-difference change to be equal and opposite, got ${canadaGdChange} and ${switzerlandGdChange}`
   );
 });
+
+test("runSnapshotMonteCarlo keeps completed knockout eliminations fixed", () => {
+  const teamList = syntheticWorldCupTeams();
+  const result = runSnapshotMonteCarlo({
+    simulations: 25,
+    teamList,
+    fixtureList: [
+      {
+        id: "M-73",
+        matchNumber: 73,
+        stage: "round_of_32",
+        homeTeamId: "A2",
+        awayTeamId: "B2",
+        homeGoals: 0,
+        awayGoals: 1,
+        status: "FT"
+      }
+    ],
+    seed: "fixed-r32-elimination"
+  });
+
+  const eliminated = result.probabilities.find((team) => team.teamId === "A2");
+  const advanced = result.probabilities.find((team) => team.teamId === "B2");
+
+  assert.equal(eliminated.roundOf32, 1);
+  assert.equal(eliminated.roundOf16, 0);
+  assert.equal(eliminated.quarterfinal, 0);
+  assert.equal(eliminated.champion, 0);
+  assert.equal(advanced.roundOf32, 1);
+  assert.equal(advanced.roundOf16, 1);
+  assert.equal(result.sampleBracket.teamFinishes.A2, "Round of 32");
+});
+
+function syntheticWorldCupTeams() {
+  const groups = "ABCDEFGHIJKL".split("");
+  let ranking = 1;
+  return groups.flatMap((group) =>
+    [1, 2, 3, 4].map((seed) => ({
+      id: `${group}${seed}`,
+      name: `${group}${seed}`,
+      group,
+      rating: 2000 - ranking,
+      fifaRanking: ranking++,
+      attack: 0,
+      defense: 0
+    }))
+  );
+}

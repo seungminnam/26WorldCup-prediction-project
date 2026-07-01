@@ -10,6 +10,7 @@ import {
   predictMatch,
   rankGroup,
   runMonteCarlo,
+  runSnapshotMonteCarlo,
   teams as teamSeed
 } from "@wc/tournament-engine";
 import type { AppFixture, AppTeam, TournamentData } from "@/lib/tournament-data";
@@ -340,8 +341,8 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
     () =>
       mode === "pre"
         ? simulationFixtures.map(({ homeGoals, awayGoals, ...match }) => match)
-        : simulationFixtures,
-    [mode, simulationFixtures]
+        : fixtures,
+    [fixtures, mode, simulationFixtures]
   );
   const currentForecastSeed = useMemo(
     () => buildForecastSeed({ mode, simulationCount, fixtureList: forecastFixtureList }),
@@ -372,7 +373,8 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
 
   function runForecast() {
     const seed = buildForecastSeed({ mode, simulationCount, fixtureList: forecastFixtureList });
-    const result = (runMonteCarlo as unknown as (options: {
+    const runner = mode === "snapshot" ? runSnapshotMonteCarlo : runMonteCarlo;
+    const result = (runner as unknown as (options: {
       simulations: number;
       teamList: AppTeam[];
       fixtureList: AppFixture[];
@@ -408,7 +410,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
           </div>
         </div>
         <nav className="top-nav" aria-label="Primary">
-          {(["fixtures", "standings", "bracket", "forecast"] as TabName[]).map((tab) => (
+          {(["fixtures", "bracket", "forecast", "standings"] as TabName[]).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -424,7 +426,7 @@ export function MatchCentreApp({ initialData }: { initialData?: TournamentData }
       <main className="app-shell">
         <section className="hero-board">
           <div className="hero-copy">
-            <p className="eyebrow">Scores, fixtures, bracket, forecast</p>
+            <p className="eyebrow">Scores, bracket, forecast, standings</p>
             <h2>Follow the tournament first. Run the model when the question shows up.</h2>
           </div>
           <div className="hero-stats" aria-label="Tournament summary">

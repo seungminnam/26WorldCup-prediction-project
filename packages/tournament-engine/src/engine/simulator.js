@@ -1,7 +1,8 @@
 import { fixtures } from "../data/fixtures.js";
 import { teams } from "../data/teams.js";
 import { buildRoundOf32, simulateKnockout } from "./bracket.js";
-import { simulateGroupMatch } from "./predictor.js";
+import { knockoutFixtures } from "../data/canonical-schedule.js";
+import { pickKnockoutWinner, simulateGroupMatch, simulateScore } from "./predictor.js";
 import { rankAllGroups } from "./ranking.js";
 import { selectBestThirdPlaceTeams } from "./thirdPlace.js";
 
@@ -143,6 +144,105 @@ function reached(finish, target) {
   return finishRank[finish] >= finishRank[target];
 }
 
+function isFinalStatus(status) {
+  return status === "FT" || status === "final";
+}
+
+function snapshotGroupFixture(match) {
+  if (isFinalStatus(match.status)) {
+    return { ...match };
+  }
+
+  const { homeGoals, awayGoals, homePenalties, awayPenalties, ...pendingMatch } = match;
+  return pendingMatch;
+}
+
+function actualKnockoutOutcome(fixture, homeId, awayId) {
+  if (!fixture || !isFinalStatus(fixture.status)) return null;
+  if (!Number.isFinite(fixture.homeGoals) || !Number.isFinite(fixture.awayGoals)) return null;
+
+  let winnerId;
+  if (fixture.homeGoals > fixture.awayGoals) {
+    winnerId = homeId;
+  } else if (fixture.awayGoals > fixture.homeGoals) {
+    winnerId = awayId;
+  } else {
+    if (!Number.isFinite(fixture.homePenalties) || !Number.isFinite(fixture.awayPenalties)) return null;
+    if (fixture.homePenalties === fixture.awayPenalties) return null;
+    winnerId = fixture.homePenalties > fixture.awayPenalties ? homeId : awayId;
+  }
+
+  return {
+    winnerId,
+    loserId: winnerId === homeId ? awayId : homeId,
+    score: {
+      [homeId]: fixture.homeGoals,
+      [awayId]: fixture.awayGoals
+    },
+    wentToPenalties: fixture.homeGoals === fixture.awayGoals
+  };
+}
+
+function simulateKnockoutOutcome(homeId, awayId, teamsById, random) {
+  const sampled = simulateScore(teamsById[homeId], teamsById[awayId], random);
+  let winnerId;
+
+  if (sampled.homeGoals > sampled.awayGoals) {
+    winnerId = homeId;
+  } else if (sampled.homeGoals < sampled.awayGoals) {
+    winnerId = awayId;
+  } else {
+    winnerId = pickKnockoutWinner(teamsById[homeId], teamsById[awayId], random);
+  }
+
+  return {
+    winnerId,
+    loserId: winnerId === homeId ? awayId : homeId,
+    score: {
+      [homeId]: sampled.homeGoals,
+      [awayId]: sampled.awayGoals
+    },
+    wentToPenalties: sampled.homeGoals === sampled.awayGoals
+  };
+}
+
+function matchMetadata(fixture) {
+  return {
+    id: fixture.matchNumber,
+    round: roundName(fixture.stage),
+    stage: fixture.stage,
+    kickoff: fixture.kickoff,
+    venue: fixture.venue,
+    stadium: fixture.stadium
+  };
+}
+
+function roundName(stage) {
+  return {
+    round_of_32: "Round of 32",
+    round_of_16: "Round of 16",
+    quarterfinal: "Quarterfinal",
+    semifinal: "Semifinal",
+    third_place: "Third place",
+    final: "Final"
+  }[stage];
+}
+
+function recordElimination(teamFinishes, loserId, round) {
+  if (finishRank[teamFinishes[loserId] ?? "Group Stage"] < finishRank[round]) {
+    teamFinishes[loserId] = round;
+  }
+}
+
+function resolveReference(reference, resultsByMatch) {
+  const sourceMatch = resultsByMatch.get(Number(reference.slice(1)));
+  if (!sourceMatch) {
+    throw new Error(`Unable to resolve knockout reference ${reference}`);
+  }
+
+  return reference.startsWith("W") ? sourceMatch.winnerId : sourceMatch.loserId;
+}
+
 export function simulateTournament({
   teamList = teams,
   fixtureList = fixtures,
@@ -173,6 +273,73 @@ export function simulateTournament({
   };
 }
 
+export function simulateSnapshotTournament({
+  teamList = teams,
+  fixtureList = fixtures,
+  random = Math.random
+} = {}) {
+  const teamsById = Object.fromEntries(teamList.map((team) => [team.id, team]));
+  const groupFixtures = fixtureList.filter((match) => match.group).map(snapshotGroupFixture);
+  const playedGroupMatches = groupFixtures.map((match) => simulateGroupMatch(match, teamsById, random));
+  const groupRankings = rankAllGroups(teamList, playedGroupMatches);
+  const bestThirds = selectBestThirdPlaceTeams(groupRankings);
+  const projectedRoundOf32 = new Map(
+    buildRoundOf32(groupRankings, bestThirds).map((match) => [match.id, match])
+  );
+  const actualKnockoutByNumber = new Map(
+    fixtureList
+      .filter((match) => !match.group && Number.isFinite(match.matchNumber))
+      .map((match) => [match.matchNumber, match])
+  );
+  const rounds = {
+    "Round of 32": [],
+    "Round of 16": [],
+    Quarterfinal: [],
+    Semifinal: [],
+    "Third place": [],
+    Final: []
+  };
+  const teamFinishes = Object.fromEntries(teamList.map((team) => [team.id, "Group Stage"]));
+  const resultsByMatch = new Map();
+
+  for (const fixture of knockoutFixtures) {
+    const round = roundName(fixture.stage);
+    const actual = actualKnockoutByNumber.get(fixture.matchNumber);
+    const projected = projectedRoundOf32.get(fixture.matchNumber);
+    const homeId = actual?.homeTeamId ?? projected?.teamIds?.[0] ?? resolveReference(fixture.homeSlot, resultsByMatch);
+    const awayId = actual?.awayTeamId ?? projected?.teamIds?.[1] ?? resolveReference(fixture.awaySlot, resultsByMatch);
+    const outcome =
+      actualKnockoutOutcome(actual, homeId, awayId) ??
+      simulateKnockoutOutcome(homeId, awayId, teamsById, random);
+    const result = {
+      ...matchMetadata(fixture),
+      slots: fixture.matchNumber <= 88
+        ? (projected?.slots ?? [fixture.homeSlot, fixture.awaySlot])
+        : [fixture.homeSlot, fixture.awaySlot],
+      teamIds: [homeId, awayId],
+      ...outcome
+    };
+
+    recordElimination(teamFinishes, outcome.loserId, round);
+    rounds[round].push(result);
+    resultsByMatch.set(fixture.matchNumber, result);
+  }
+
+  const final = resultsByMatch.get(104);
+  teamFinishes[final.winnerId] = "Champion";
+
+  return {
+    teams: teamList,
+    playedGroupMatches,
+    groupRankings,
+    bestThirds,
+    roundOf32: rounds["Round of 32"],
+    rounds,
+    championId: final.winnerId,
+    teamFinishes
+  };
+}
+
 export function runMonteCarlo({
   simulations = 1000,
   teamList = teams,
@@ -180,6 +347,34 @@ export function runMonteCarlo({
   random,
   seed
 } = {}) {
+  return summarizeSimulations({
+    simulations,
+    teamList,
+    random,
+    seed,
+    simulate: (simulationRandom) =>
+      simulateTournament({ teamList, fixtureList, random: simulationRandom })
+  });
+}
+
+export function runSnapshotMonteCarlo({
+  simulations = 1000,
+  teamList = teams,
+  fixtureList = fixtures,
+  random,
+  seed
+} = {}) {
+  return summarizeSimulations({
+    simulations,
+    teamList,
+    random,
+    seed,
+    simulate: (simulationRandom) =>
+      simulateSnapshotTournament({ teamList, fixtureList, random: simulationRandom })
+  });
+}
+
+function summarizeSimulations({ simulations, teamList, random, seed, simulate }) {
   const counters = createCounters(teamList);
   const rankCounters = createRankCounters(teamList);
   const groupOutcomesByGroup = {};
@@ -187,7 +382,7 @@ export function runMonteCarlo({
   let sampleBracket;
 
   for (let index = 0; index < simulations; index += 1) {
-    const tournament = simulateTournament({ teamList, fixtureList, random: simulationRandom });
+    const tournament = simulate(simulationRandom);
     if (index === 0) {
       sampleBracket = tournament;
     }
