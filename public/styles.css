@@ -633,16 +633,18 @@ p {
   height: 22px;
   place-items: center;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  background: #0c7c40;
-  color: #fff;
+  border: 1px solid #bfeadd;
+  background: #e9fbf7;
+  color: #0c7c40;
   font-weight: 950;
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 1px 3px rgba(8, 31, 57, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.68);
 }
 
 .shootout-attempt.penalty_miss .shootout-order {
-  background: #b42318;
+  border-color: #ffd4ca;
+  background: #fff0ec;
+  color: #b42318;
 }
 
 .shootout-attempt strong {
