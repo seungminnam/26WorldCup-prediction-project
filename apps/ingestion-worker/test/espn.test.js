@@ -109,6 +109,219 @@ test("classifies a red card event distinctly from a yellow card", () => {
   ]);
 });
 
+test("uses a fallback player name when ESPN omits athlete details", () => {
+  const event = {
+    id: "999002",
+    date: "2026-06-19T01:00Z",
+    season: { year: 2026 },
+    competitions: [
+      {
+        venue: { id: "1702", fullName: "Sample Ground" },
+        altGameNote: "FIFA World Cup, Group D",
+        status: { clock: 5400, type: { name: "STATUS_FULL_TIME" } },
+        competitors: [
+          { homeAway: "home", score: "1", team: { id: "660", displayName: "United States", abbreviation: "USA" } },
+          { homeAway: "away", score: "1", team: { id: "465", displayName: "Turkey", abbreviation: "TUR" } }
+        ],
+        details: [
+          {
+            type: { id: "94", text: "Yellow Card" },
+            clock: { value: 3756, displayValue: "63'" },
+            team: { id: "465" },
+            scoringPlay: false,
+            redCard: false,
+            yellowCard: true,
+            penaltyKick: false,
+            ownGoal: false
+          }
+        ]
+      }
+    ]
+  };
+
+  const result = normalizeEspnFixture(event);
+
+  assert.deepEqual(result.events, [
+    {
+      providerEventId: "999002:465:3756:94:0",
+      providerTeamId: "465",
+      playerName: "Unknown player",
+      assistPlayerName: null,
+      minute: 63,
+      stoppageMinute: null,
+      eventType: "yellow_card"
+    }
+  ]);
+});
+
+test("parses ESPN stoppage-time clock display values", () => {
+  const event = {
+    id: "999001",
+    date: "2026-06-28T19:00Z",
+    season: { year: 2026 },
+    competitions: [
+      {
+        venue: { id: "1701", fullName: "Sample Stadium" },
+        altGameNote: "FIFA World Cup, Round of 32",
+        status: { clock: 5400, type: { name: "STATUS_FULL_TIME" } },
+        competitors: [
+          { homeAway: "home", score: "2", team: { id: "205", displayName: "Brazil", abbreviation: "BRA" } },
+          { homeAway: "away", score: "1", team: { id: "627", displayName: "Japan", abbreviation: "JPN" } }
+        ],
+        details: [
+          {
+            type: { id: "70", text: "Goal" },
+            clock: { value: 5400, displayValue: "90'+5'" },
+            team: { id: "205" },
+            scoringPlay: true,
+            redCard: false,
+            yellowCard: false,
+            penaltyKick: false,
+            ownGoal: false,
+            athletesInvolved: [{ id: "269844", displayName: "Gabriel Martinelli" }]
+          }
+        ]
+      }
+    ]
+  };
+
+  const result = normalizeEspnFixture(event);
+
+  assert.deepEqual(result.events, [
+    {
+      providerEventId: "999001:205:5400:70:269844",
+      providerTeamId: "205",
+      playerName: "Gabriel Martinelli",
+      assistPlayerName: null,
+      minute: 90,
+      stoppageMinute: 5,
+      eventType: "goal"
+    }
+  ]);
+});
+
+test("normalizes ESPN missed shootout penalties", () => {
+  const event = {
+    id: "999003",
+    date: "2026-06-29T01:00Z",
+    season: { year: 2026 },
+    competitions: [
+      {
+        venue: { id: "1703", fullName: "Shootout Stadium" },
+        altGameNote: "FIFA World Cup, Round of 32",
+        status: { clock: 7200, type: { name: "STATUS_FULL_TIME" } },
+        competitors: [
+          { homeAway: "home", score: "1", shootoutScore: "2", team: { id: "381", displayName: "Netherlands", abbreviation: "NED" } },
+          { homeAway: "away", score: "1", shootoutScore: "3", team: { id: "2869", displayName: "Morocco", abbreviation: "MAR" } }
+        ],
+        details: [
+          {
+            type: { id: "87", text: "Penalty - Missed" },
+            clock: { value: 7200, displayValue: "120'" },
+            team: { id: "381" },
+            scoringPlay: false,
+            redCard: false,
+            yellowCard: false,
+            penaltyKick: true,
+            ownGoal: false,
+            athletesInvolved: [{ id: "12345", displayName: "J. Kluivert" }]
+          }
+        ]
+      }
+    ]
+  };
+
+  const result = normalizeEspnFixture(event);
+
+  assert.deepEqual(result.events, [
+    {
+      providerEventId: "999003:381:7200:87:12345",
+      providerTeamId: "381",
+      playerName: "J. Kluivert",
+      assistPlayerName: null,
+      minute: 120,
+      stoppageMinute: null,
+      eventType: "penalty_miss"
+    }
+  ]);
+});
+
+test("normalizes ESPN summary shootout attempts", () => {
+  const event = {
+    id: "999004",
+    date: "2026-06-30T01:00Z",
+    season: { year: 2026 },
+    competitions: [
+      {
+        venue: { id: "1704", fullName: "Shootout Stadium" },
+        altGameNote: "FIFA World Cup, Round of 32",
+        status: { clock: 7200, type: { name: "STATUS_FULL_TIME" } },
+        competitors: [
+          { homeAway: "home", score: "1", shootoutScore: "2", team: { id: "381", displayName: "Netherlands", abbreviation: "NED" } },
+          { homeAway: "away", score: "1", shootoutScore: "3", team: { id: "2869", displayName: "Morocco", abbreviation: "MAR" } }
+        ],
+        details: [
+          {
+            type: { id: "72", text: "Penalty - Scored" },
+            clock: { value: 7200, displayValue: "120'" },
+            team: { id: "381" },
+            scoringPlay: true,
+            penaltyKick: true,
+            athletesInvolved: [{ id: "258968", displayName: "Teun Koopmeiners" }]
+          }
+        ],
+        shootout: [
+          {
+            id: "381",
+            shots: [
+              { id: "49665202", playerId: "258968", player: "Teun Koopmeiners", shotNumber: 1, didScore: true },
+              { id: "49665204", playerId: "245916", player: "Justin Kluivert", shotNumber: 2, didScore: false }
+            ]
+          },
+          {
+            id: "2869",
+            shots: [
+              { id: "49665203", playerId: "323807", player: "Neil El Aynaoui", shotNumber: 1, didScore: false }
+            ]
+          }
+        ]
+      }
+    ]
+  };
+
+  const result = normalizeEspnFixture(event);
+
+  assert.deepEqual(result.events, [
+    {
+      providerEventId: "999004:381:shootout:1:49665202",
+      providerTeamId: "381",
+      playerName: "Teun Koopmeiners",
+      assistPlayerName: null,
+      minute: 120,
+      stoppageMinute: 1,
+      eventType: "penalty_goal"
+    },
+    {
+      providerEventId: "999004:381:shootout:2:49665204",
+      providerTeamId: "381",
+      playerName: "Justin Kluivert",
+      assistPlayerName: null,
+      minute: 120,
+      stoppageMinute: 2,
+      eventType: "penalty_miss"
+    },
+    {
+      providerEventId: "999004:2869:shootout:1:49665203",
+      providerTeamId: "2869",
+      playerName: "Neil El Aynaoui",
+      assistPlayerName: null,
+      minute: 120,
+      stoppageMinute: 1,
+      eventType: "penalty_miss"
+    }
+  ]);
+});
+
 test("normalizes a scheduled fixture with null scores and no events", async () => {
   const raw = await loadFixture("espn-scoreboard.sample.json");
   const result = normalizeEspnFixture(raw.events[1]);

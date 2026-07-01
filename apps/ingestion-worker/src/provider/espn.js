@@ -70,7 +70,7 @@ export function normalizeEspnFixture(event) {
     status,
     home: normalizeCompetitor(homeCompetitor, hasScore),
     away: normalizeCompetitor(awayCompetitor, hasScore),
-    events: normalizeEvents(fixtureId, competition?.details ?? [])
+    events: normalizeEvents(fixtureId, competition?.details ?? [], competition?.shootout ?? [])
   };
 }
 
@@ -128,9 +128,17 @@ function normalizeCompetitor(competitor, hasScore) {
   };
 }
 
-function normalizeEvents(fixtureId, details) {
-  return details
-    .filter((detail) => detail.scoringPlay === true || detail.yellowCard === true || detail.redCard === true)
+function normalizeEvents(fixtureId, details, shootout) {
+  const hasShootoutSummary = Array.isArray(shootout) && shootout.length > 0;
+  const detailEvents = details
+    .filter(
+      (detail) =>
+        detail.scoringPlay === true ||
+        detail.yellowCard === true ||
+        detail.redCard === true ||
+        detail.penaltyKick === true
+    )
+    .filter((detail) => !hasShootoutSummary || !isShootoutPenaltyDetail(detail))
     .map((detail) => {
       const teamId = String(detail.team?.id ?? "");
       const athlete = detail.athletesInvolved?.[0];
@@ -140,26 +148,45 @@ function normalizeEvents(fixtureId, details) {
       return {
         providerEventId: `${fixtureId}:${teamId}:${Math.round(detail.clock?.value ?? 0)}:${detail.type?.id ?? "0"}:${athleteId}`,
         providerTeamId: teamId,
-        playerName: athlete?.displayName ?? null,
+        playerName: athlete?.displayName ?? "Unknown player",
         assistPlayerName: null,
         minute,
         stoppageMinute,
         eventType: classifyEventType(detail)
       };
     });
+
+  const shootoutEvents = (shootout ?? []).flatMap((teamShootout) =>
+    (teamShootout.shots ?? []).map((shot) => ({
+      providerEventId: `${fixtureId}:${teamShootout.id}:shootout:${shot.shotNumber}:${shot.id ?? shot.playerId ?? shot.player ?? "0"}`,
+      providerTeamId: String(teamShootout.id ?? ""),
+      playerName: shot.player ?? "Unknown player",
+      assistPlayerName: null,
+      minute: 120,
+      stoppageMinute: Number(shot.shotNumber ?? 0),
+      eventType: shot.didScore === true ? "penalty_goal" : "penalty_miss"
+    }))
+  );
+
+  return [...detailEvents, ...shootoutEvents];
 }
 
 function classifyEventType(detail) {
   if (detail.redCard) return "red_card";
   if (detail.yellowCard) return "yellow_card";
   if (detail.ownGoal) return "own_goal";
-  if (detail.penaltyKick) return "penalty_goal";
+  if (detail.penaltyKick) return detail.scoringPlay === true ? "penalty_goal" : "penalty_miss";
   return "goal";
+}
+
+function isShootoutPenaltyDetail(detail) {
+  const { minute } = parseClockDisplay(detail.clock);
+  return detail.penaltyKick === true && minute >= 120;
 }
 
 function parseClockDisplay(clock) {
   const display = clock?.displayValue ?? "";
-  const match = display.match(/^(\d+)(?:\+(\d+))?'?$/);
+  const match = display.match(/^(\d+)'?(?:\+(\d+)'?)?$/);
 
   if (!match) {
     return { minute: secondsToMinutes(clock) ?? 0, stoppageMinute: null };

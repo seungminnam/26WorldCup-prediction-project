@@ -51,11 +51,32 @@ test("maps shootout scores for completed knockout fixtures", () => {
       home_slot: "W93",
       away_slot: "W94"
     }],
-    []
+    [
+      {
+        fixture_id: "M-98",
+        team_id: "BRA",
+        player_name: "Casemiro",
+        minute: 120,
+        stoppage_minute: null,
+        event_type: "penalty_goal"
+      },
+      {
+        fixture_id: "M-98",
+        team_id: "ARG",
+        player_name: "Lionel Messi",
+        minute: 120,
+        stoppage_minute: null,
+        event_type: "penalty_miss"
+      }
+    ]
   );
 
   assert.equal(fixture.homePenalties, 4);
   assert.equal(fixture.awayPenalties, 3);
+  assert.deepEqual(fixture.shootoutEvents, [
+    { teamId: "BRA", player: "Casemiro", minute: 120, eventType: "penalty_goal" },
+    { teamId: "ARG", player: "Lionel Messi", minute: 120, eventType: "penalty_miss" }
+  ]);
 });
 
 test("separates card events from goal events into a distinct cards array", () => {
@@ -85,9 +106,46 @@ test("separates card events from goal events into a distinct cards array", () =>
     ]
   );
 
-  assert.deepEqual(fixture.scorers, [{ teamId: "MEX", player: "Julián Quiñones", minute: 9 }]);
+  assert.deepEqual(fixture.scorers, [{ teamId: "MEX", player: "Julián Quiñones", minute: 9, eventType: "goal" }]);
   assert.deepEqual(fixture.cards, [
     { teamId: "RSA", player: "Some Defender", minute: 17, eventType: "yellow_card" },
     { teamId: "RSA", player: "Some Striker", minute: 80, eventType: "red_card" }
+  ]);
+});
+
+test("keeps stoppage minutes on goal events", () => {
+  const [fixture] = mapFixtureRows(
+    [
+      {
+        id: "A-2",
+        match_number: 2,
+        group_code: "A",
+        stage: "group",
+        kickoff_at: "2026-06-12T01:00:00Z",
+        status: "final",
+        home_goals: 1,
+        away_goals: 0,
+        venue_name: "BC Place",
+        venue_city: "Vancouver",
+        home_team_id: "CAN",
+        away_team_id: "QAT",
+        home_slot: "CAN",
+        away_slot: "QAT"
+      }
+    ],
+    [
+      {
+        fixture_id: "A-2",
+        team_id: "CAN",
+        player_name: "Jonathan David",
+        minute: 90,
+        stoppage_minute: 2,
+        event_type: "goal"
+      }
+    ]
+  );
+
+  assert.deepEqual(fixture.scorers, [
+    { teamId: "CAN", player: "Jonathan David", minute: 90, eventType: "goal", stoppageMinute: 2 }
   ]);
 });

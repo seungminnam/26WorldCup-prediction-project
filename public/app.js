@@ -155,13 +155,228 @@ function renderDayPills() {
 }
 
 function scorerText(match) {
-  if (!match.scorers.length) {
-    return match.status === "FT" ? "No scorer data" : `${match.venue} · ${timeLabel(match.kickoff)}`;
+  return match.status === "FT" ? "No scorer data" : `${match.venue} · ${timeLabel(match.kickoff)}`;
+}
+
+function formatMatchMinute(event) {
+  const stoppageMinute = Number(event.stoppageMinute ?? 0);
+  return stoppageMinute > 0 ? `${event.minute}+${stoppageMinute}'` : `${event.minute}'`;
+}
+
+function hasPenaltyShootout(match) {
+  return Number.isFinite(match.homePenalties) && Number.isFinite(match.awayPenalties);
+}
+
+function isShootoutPenaltyScorer(match, scorer) {
+  return hasPenaltyShootout(match) && scorer.eventType === "penalty_goal" && scorer.minute >= 120;
+}
+
+function visibleGoalScorers(match) {
+  const seen = new Set();
+
+  return match.scorers.filter((scorer) => {
+    if (isShootoutPenaltyScorer(match, scorer)) return false;
+
+    const key = [
+      scorer.teamId,
+      scorer.player,
+      scorer.minute,
+      scorer.stoppageMinute ?? 0,
+      scorer.eventType ?? "goal"
+    ].join("|");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function groupGoalScorers(scorers) {
+  const groups = new Map();
+
+  scorers
+    .slice()
+    .sort(compareScorers)
+    .forEach((scorer) => {
+      const key = `${scorer.teamId}-${scorer.player}`;
+      const group = groups.get(key) ?? { key, teamId: scorer.teamId, player: scorer.player, events: [] };
+      group.events.push(scorer);
+      groups.set(key, group);
+    });
+
+  return [...groups.values()];
+}
+
+function compareScorers(left, right) {
+  if (left.minute !== right.minute) return left.minute - right.minute;
+  return (left.stoppageMinute ?? 0) - (right.stoppageMinute ?? 0);
+}
+
+function scorerBadge(scorer) {
+  if (scorer.eventType === "penalty_goal") return "PEN";
+  if (scorer.eventType === "own_goal") return "OG";
+  return "";
+}
+
+function eventSideClass(match, teamId) {
+  if (teamId === match.homeTeamId) return "home";
+  if (teamId === match.awayTeamId) return "away";
+  return "";
+}
+
+function shootoutAttemptsForDisplay(match) {
+  if (!hasPenaltyShootout(match)) return [];
+
+  const deduped = new Map();
+  (match.shootoutEvents ?? []).forEach((attempt) => {
+    const key = `${attempt.teamId}-${attempt.player}-${attempt.eventType}`;
+    const existing = deduped.get(key);
+    if (!existing || (!existing.stoppageMinute && attempt.stoppageMinute)) {
+      deduped.set(key, attempt);
+    }
+  });
+
+  return [...deduped.values()].sort((left, right) => {
+    const order = (left.stoppageMinute ?? 0) - (right.stoppageMinute ?? 0);
+    const sideOrder = sideSortValue(match, left.teamId) - sideSortValue(match, right.teamId);
+    if (order !== 0) return order;
+    if (sideOrder !== 0) return sideOrder;
+    return left.player.localeCompare(right.player);
+  });
+}
+
+function sideSortValue(match, teamId) {
+  if (teamId === match.homeTeamId) return 0;
+  if (teamId === match.awayTeamId) return 1;
+  return 2;
+}
+
+function shootoutAttemptNumber(attempt, index) {
+  if (Number.isFinite(attempt.stoppageMinute) && attempt.stoppageMinute > 0) {
+    return attempt.stoppageMinute;
+  }
+  return Math.floor(index / 2) + 1;
+}
+
+function shootoutAttemptLabel(attempt, index) {
+  const order = shootoutAttemptNumber(attempt, index);
+  return `${order} shootout taker ${attempt.eventType === "penalty_goal" ? "scored" : "missed"}`;
+}
+
+function shootoutAttemptsSummary(match, attempts) {
+  const made = attempts.filter((attempt) => attempt.eventType === "penalty_goal").length;
+  const missed = attempts.filter((attempt) => attempt.eventType === "penalty_miss").length;
+  const total = made + missed;
+
+  if (total === 0 && hasPenaltyShootout(match)) return `PK ${match.homePenalties}-${match.awayPenalties}`;
+  if (missed === 0) return `${made} scored kicks`;
+  return `${made}/${total} logged`;
+}
+
+function penaltyShootoutSummary(match) {
+  if (!hasPenaltyShootout(match)) return "";
+
+  const winningTeamId =
+    match.homePenalties > match.awayPenalties
+      ? match.homeTeamId
+      : match.awayPenalties > match.homePenalties
+        ? match.awayTeamId
+        : null;
+  const label = winningTeamId ? `${teamName(winningTeamId)} advances on penalties` : "Penalty shootout";
+
+  return `
+    <div class="shootout-summary" aria-label="${label}">
+      <span>PK ${match.homePenalties}-${match.awayPenalties}</span>
+      <strong>${label}</strong>
+    </div>
+  `;
+}
+
+function fixtureEventPanel(match) {
+  const goalGroups = groupGoalScorers(visibleGoalScorers(match));
+  const visibleGoalGroups = goalGroups.slice(0, 4);
+  const hiddenGoalCount = goalGroups.length - visibleGoalGroups.length;
+  const shootoutAttempts = shootoutAttemptsForDisplay(match);
+
+  if (!goalGroups.length && !shootoutAttempts.length) {
+    return `
+      <div class="fixture-events empty">
+        <span>Details</span>
+        <strong>${scorerText(match)}</strong>
+      </div>
+    `;
   }
 
-  return match.scorers
-    .map((scorer) => `${scorer.player} ${scorer.minute}'`)
-    .join(" · ");
+  return `
+    <div class="fixture-events">
+      ${
+        goalGroups.length
+          ? `
+            <div class="fixture-events-heading">
+              <span>Goals</span>
+              ${hiddenGoalCount > 0 ? `<span class="fixture-more-count">+${hiddenGoalCount} more</span>` : ""}
+            </div>
+            <div class="fixture-event-list" aria-label="Goal events">
+              ${visibleGoalGroups
+                .map(
+                  (group) => `
+                    <div class="fixture-event ${eventSideClass(match, group.teamId)}">
+                      <span class="event-minutes">
+                        ${group.events
+                          .map((scorer) => {
+                            const badge = scorerBadge(scorer);
+                            return `
+                              <span class="event-minute">
+                                ${formatMatchMinute(scorer)}
+                                ${badge ? `<em>${badge}</em>` : ""}
+                              </span>
+                            `;
+                          })
+                          .join("")}
+                      </span>
+                      <span class="event-team-code">${group.teamId}</span>
+                      <strong>${group.player}</strong>
+                    </div>
+                  `
+                )
+                .join("")}
+            </div>
+          `
+          : ""
+      }
+      ${
+        shootoutAttempts.length
+          ? `
+            <div class="shootout-disclosure">
+              <button type="button" aria-expanded="false" data-shootout-toggle>
+                <span>Shootout</span>
+                <strong>${shootoutAttemptsSummary(match, shootoutAttempts)}</strong>
+                <i aria-hidden="true">+</i>
+              </button>
+              <div class="shootout-attempts" aria-label="Penalty shootout attempts" hidden>
+                ${shootoutAttempts
+                  .map(
+                    (attempt, index) => `
+                      <div class="shootout-attempt ${eventSideClass(match, attempt.teamId)} ${attempt.eventType}">
+                        <span
+                          class="shootout-order"
+                          aria-label="${shootoutAttemptLabel(attempt, index)}"
+                          title="${shootoutAttemptLabel(attempt, index)}"
+                        >
+                          ${shootoutAttemptNumber(attempt, index)}
+                        </span>
+                        <strong>${attempt.player}</strong>
+                        <em>${attempt.teamId}</em>
+                      </div>
+                    `
+                  )
+                  .join("")}
+              </div>
+            </div>
+          `
+          : ""
+      }
+    </div>
+  `;
 }
 
 function scoreCell(match, side) {
@@ -198,26 +413,41 @@ function renderMatchCentre() {
             </div>
             <div class="teams-score">
               <div class="score-row">
-                <span class="team-inline">
-                  <span class="flag-badge">${teamFlag(match.homeTeamId)}</span>
-                  ${teamName(match.homeTeamId)}
-                </span>
+                <div class="team-column">
+                  <span class="team-inline">
+                    <span class="flag-badge">${teamFlag(match.homeTeamId)}</span>
+                    <span class="team-name">${teamName(match.homeTeamId)}</span>
+                  </span>
+                </div>
                 <span class="score">${scoreCell(match, "home")}</span>
               </div>
               <div class="score-row">
-                <span class="team-inline">
-                  <span class="flag-badge">${teamFlag(match.awayTeamId)}</span>
-                  ${teamName(match.awayTeamId)}
-                </span>
+                <div class="team-column">
+                  <span class="team-inline">
+                    <span class="flag-badge">${teamFlag(match.awayTeamId)}</span>
+                    <span class="team-name">${teamName(match.awayTeamId)}</span>
+                  </span>
+                </div>
                 <span class="score">${scoreCell(match, "away")}</span>
               </div>
+              ${penaltyShootoutSummary(match)}
             </div>
-            <div class="scorers">${scorerText(match)}</div>
+            ${fixtureEventPanel(match)}
           </article>
         `
       )
       .join("")}
   `;
+
+  matchList.querySelectorAll("[data-shootout-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const attempts = button.parentElement?.querySelector(".shootout-attempts");
+      const expanded = button.getAttribute("aria-expanded") === "true";
+      button.setAttribute("aria-expanded", String(!expanded));
+      button.querySelector("i").textContent = expanded ? "+" : "−";
+      if (attempts) attempts.hidden = expanded;
+    });
+  });
 }
 
 function groupLabels() {

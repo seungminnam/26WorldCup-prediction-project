@@ -7,7 +7,28 @@ export function mapFixtureRows(rows: any[], eventRows: any[]) {
       accumulator[row.fixture_id].push({
         teamId: row.team_id,
         player: row.player_name,
-        minute: row.minute
+        minute: row.minute,
+        eventType: row.event_type,
+        ...(typeof row.stoppage_minute === "number" && row.stoppage_minute > 0
+          ? { stoppageMinute: row.stoppage_minute }
+          : {})
+      });
+      return accumulator;
+    }, {});
+
+  const shootoutEventsByFixture = eventRows
+    .filter((row) => row.event_type === "penalty_goal" || row.event_type === "penalty_miss")
+    .reduce<Record<string, any[]>>((accumulator, row) => {
+      if (!row.team_id || row.minute < 120) return accumulator;
+      accumulator[row.fixture_id] ??= [];
+      accumulator[row.fixture_id].push({
+        teamId: row.team_id,
+        player: row.player_name,
+        minute: row.minute,
+        eventType: row.event_type,
+        ...(typeof row.stoppage_minute === "number" && row.stoppage_minute > 0
+          ? { stoppageMinute: row.stoppage_minute }
+          : {})
       });
       return accumulator;
     }, {});
@@ -44,6 +65,10 @@ export function mapFixtureRows(rows: any[], eventRows: any[]) {
     ...(typeof row.home_penalties === "number" ? { homePenalties: row.home_penalties } : {}),
     ...(typeof row.away_penalties === "number" ? { awayPenalties: row.away_penalties } : {}),
     scorers: eventsByFixture[row.id] ?? [],
+    shootoutEvents:
+      typeof row.home_penalties === "number" && typeof row.away_penalties === "number"
+        ? shootoutEventsByFixture[row.id] ?? []
+        : [],
     cards: cardsByFixture[row.id] ?? []
   }));
 }
