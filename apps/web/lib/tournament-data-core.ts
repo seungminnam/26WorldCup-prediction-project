@@ -64,6 +64,7 @@ export function mapFixtureRows(rows: any[], eventRows: any[]) {
     ...(typeof row.away_goals === "number" ? { awayGoals: row.away_goals } : {}),
     ...(typeof row.home_penalties === "number" ? { homePenalties: row.home_penalties } : {}),
     ...(typeof row.away_penalties === "number" ? { awayPenalties: row.away_penalties } : {}),
+    ...(typeof row.elapsed_minutes === "number" ? { elapsedMinutes: row.elapsed_minutes } : {}),
     scorers: eventsByFixture[row.id] ?? [],
     shootoutEvents:
       typeof row.home_penalties === "number" && typeof row.away_penalties === "number"

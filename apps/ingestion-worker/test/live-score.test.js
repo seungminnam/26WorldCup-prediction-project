@@ -21,12 +21,14 @@ test("builds a penalty shootout fixture and assisted goal event plan", () => {
     home_penalties: 4,
     away_penalties: 3,
     winner_team_id: "KOR",
+    elapsed_minutes: null,
     result_verified_at: null,
     source: "api-football"
   });
   assert.deepEqual(Object.keys(plan.fixture).sort(), [
     "away_goals",
     "away_penalties",
+    "elapsed_minutes",
     "home_goals",
     "home_penalties",
     "id",
@@ -74,6 +76,7 @@ test("clears canonical score fields for non-score states", () => {
       home_penalties: null,
       away_penalties: null,
       winner_team_id: null,
+      elapsed_minutes: null,
       result_verified_at: null,
       source: "api-football"
     });
