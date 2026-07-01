@@ -257,6 +257,11 @@ function shootoutAttemptNumber(attempt, index) {
   return Math.floor(index / 2) + 1;
 }
 
+function shootoutAttemptLabel(attempt, index) {
+  const order = shootoutAttemptNumber(attempt, index);
+  return `${order} shootout taker ${attempt.eventType === "penalty_goal" ? "scored" : "missed"}`;
+}
+
 function shootoutAttemptsSummary(match, attempts) {
   const made = attempts.filter((attempt) => attempt.eventType === "penalty_goal").length;
   const missed = attempts.filter((attempt) => attempt.eventType === "penalty_miss").length;
@@ -352,10 +357,13 @@ function fixtureEventPanel(match) {
                   .map(
                     (attempt, index) => `
                       <div class="shootout-attempt ${eventSideClass(match, attempt.teamId)} ${attempt.eventType}">
-                        <span class="shootout-order">${shootoutAttemptNumber(attempt, index)}</span>
-                        <i class="shootout-result" aria-hidden="true">
-                          ${attempt.eventType === "penalty_goal" ? "✓" : "×"}
-                        </i>
+                        <span
+                          class="shootout-order"
+                          aria-label="${shootoutAttemptLabel(attempt, index)}"
+                          title="${shootoutAttemptLabel(attempt, index)}"
+                        >
+                          ${shootoutAttemptNumber(attempt, index)}
+                        </span>
                         <strong>${attempt.player}</strong>
                         <em>${attempt.teamId}</em>
                       </div>

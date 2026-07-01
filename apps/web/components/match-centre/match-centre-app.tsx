@@ -1091,10 +1091,13 @@ function FixtureEventPanel({
                   key={`${attempt.teamId}-${attempt.player}-${attempt.eventType}-${index}`}
                   className={`shootout-attempt ${eventSideClass(match, attempt.teamId)} ${attempt.eventType}`}
                 >
-                  <span className="shootout-order">{shootoutAttemptNumber(attempt, index)}</span>
-                  <i className="shootout-result" aria-hidden="true">
-                    {attempt.eventType === "penalty_goal" ? "✓" : "×"}
-                  </i>
+                  <span
+                    className="shootout-order"
+                    aria-label={shootoutAttemptLabel(attempt, index)}
+                    title={shootoutAttemptLabel(attempt, index)}
+                  >
+                    {shootoutAttemptNumber(attempt, index)}
+                  </span>
                   <strong>{attempt.player}</strong>
                   <em>{teamCodeForEvent(attempt.teamId, teamsById)}</em>
                 </div>
@@ -1546,6 +1549,11 @@ function shootoutAttemptNumber(attempt: AppFixture["shootoutEvents"][number], in
     return attempt.stoppageMinute;
   }
   return Math.floor(index / 2) + 1;
+}
+
+function shootoutAttemptLabel(attempt: AppFixture["shootoutEvents"][number], index: number) {
+  const order = shootoutAttemptNumber(attempt, index);
+  return `${order} shootout taker ${attempt.eventType === "penalty_goal" ? "scored" : "missed"}`;
 }
 
 function sideSortValue(match: AppFixture, teamId: string) {
