@@ -2,11 +2,5 @@
   "framework": "nextjs",
   "installCommand": "npm install",
   "buildCommand": "npm run web:build",
-  "outputDirectory": "apps/web/.next",
-  "crons": [
-    {
-      "path": "/api/cron/sync-espn",
-      "schedule": "0 6 * * *"
-    }
-  ]
+  "outputDirectory": "apps/web/.next"
 }
