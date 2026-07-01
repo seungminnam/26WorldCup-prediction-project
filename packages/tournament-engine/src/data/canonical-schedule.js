@@ -81,7 +81,7 @@ const knockoutRows = [
   [76, "round_of_32", "1C", "2F", "2026-06-29T17:00:00Z", "Houston", "NRG Stadium", "760487"],
   [77, "round_of_32", "1I", "3 CDFGH", "2026-06-30T21:00:00Z", "New York/New Jersey", "MetLife Stadium", "760492"],
   [78, "round_of_32", "2E", "2I", "2026-06-30T17:00:00Z", "Dallas", "AT&T Stadium", "760490"],
-  [79, "round_of_32", "1A", "3 CEFHI", "2026-07-01T01:00:00Z", "Mexico City", "Estadio Banorte", "760491"],
+  [79, "round_of_32", "1A", "3 CEFHI", "2026-07-01T02:00:00Z", "Mexico City", "Estadio Banorte", "760491"],
   [80, "round_of_32", "1L", "3 EHIJK", "2026-07-01T16:00:00Z", "Atlanta", "Mercedes-Benz Stadium", "760495"],
   [81, "round_of_32", "1D", "3 BEFIJ", "2026-07-02T00:00:00Z", "San Francisco Bay Area", "Levi's Stadium", "760494"],
   [82, "round_of_32", "1G", "3 AEHIJ", "2026-07-01T20:00:00Z", "Seattle", "Lumen Field", "760493"],

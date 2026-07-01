@@ -168,7 +168,7 @@ values
   ('M-76', 76, null, 'round_of_32', null, null, '1C', '2F', '2026-06-29T17:00:00.000Z', 'houston', 'NRG Stadium', 'scheduled', 'fifa_schedule'),
   ('M-77', 77, null, 'round_of_32', null, null, '1I', '3 CDFGH', '2026-06-30T21:00:00.000Z', 'new-york-new-jersey', 'MetLife Stadium', 'scheduled', 'fifa_schedule'),
   ('M-78', 78, null, 'round_of_32', null, null, '2E', '2I', '2026-06-30T17:00:00.000Z', 'dallas', 'AT&T Stadium', 'scheduled', 'fifa_schedule'),
-  ('M-79', 79, null, 'round_of_32', null, null, '1A', '3 CEFHI', '2026-07-01T01:00:00.000Z', 'mexico-city', 'Estadio Banorte', 'scheduled', 'fifa_schedule'),
+  ('M-79', 79, null, 'round_of_32', null, null, '1A', '3 CEFHI', '2026-07-01T02:00:00.000Z', 'mexico-city', 'Estadio Banorte', 'scheduled', 'fifa_schedule'),
   ('M-80', 80, null, 'round_of_32', null, null, '1L', '3 EHIJK', '2026-07-01T16:00:00.000Z', 'atlanta', 'Mercedes-Benz Stadium', 'scheduled', 'fifa_schedule'),
   ('M-81', 81, null, 'round_of_32', null, null, '1D', '3 BEFIJ', '2026-07-02T00:00:00.000Z', 'san-francisco-bay-area', 'Levi''s Stadium', 'scheduled', 'fifa_schedule'),
   ('M-82', 82, null, 'round_of_32', null, null, '1G', '3 AEHIJ', '2026-07-01T20:00:00.000Z', 'seattle', 'Lumen Field', 'scheduled', 'fifa_schedule'),
