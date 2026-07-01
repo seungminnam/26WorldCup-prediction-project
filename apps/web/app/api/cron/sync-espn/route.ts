@@ -4,7 +4,10 @@ import { canonicalSchedule } from "@wc/tournament-engine";
 
 import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 import { findLiveSyncWindow } from "@/lib/live-sync-window";
-import { runSyncEspnLive } from "../../../../../ingestion-worker/src/cli/sync-espn-live-core.js";
+import {
+  formatSyncErrorMessage,
+  runSyncEspnLive
+} from "../../../../../ingestion-worker/src/cli/sync-espn-live-core.js";
 import { createEspnClient } from "../../../../../ingestion-worker/src/provider/espn-client.js";
 import { createSupabaseWriter } from "../../../../../ingestion-worker/src/storage/supabase-writer.js";
 import { resolveKnockoutSlots } from "../../../../../ingestion-worker/src/sync/resolve-knockout-slots.js";
@@ -58,7 +61,7 @@ export async function GET(request: Request) {
     } catch (error) {
       knockoutResolution = {
         ok: false,
-        error: error instanceof Error ? error.message : "Unknown knockout resolution error"
+        error: formatSyncErrorMessage(error, "Unknown knockout resolution error")
       };
     }
 
@@ -71,13 +74,19 @@ export async function GET(request: Request) {
       knockoutResolution
     });
   } catch (error) {
+    try {
+      revalidatePath("/");
+    } catch {
+      // A failed sync may still have applied partial fixture updates before throwing.
+    }
+
     return NextResponse.json(
       {
         ok: false,
         mode: "apply",
         checkedAt: now.toISOString(),
         activeFixtureIds: syncWindow.activeFixtureIds,
-        error: error instanceof Error ? error.message : "Unknown ESPN sync error"
+        error: formatSyncErrorMessage(error, "Unknown ESPN sync error")
       },
       { status: 500 }
     );

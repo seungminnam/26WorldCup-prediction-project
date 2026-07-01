@@ -22,11 +22,12 @@ export function createEspnClient({
   }
 
   return {
-    fetchFixturesBetween({ dateFrom, dateTo }) {
-      return request("scoreboard", {
+    async fetchFixturesBetween({ dateFrom, dateTo }) {
+      const payload = await request("scoreboard", {
         dates: `${compactDate(dateFrom)}-${compactDate(dateTo)}`,
         limit: 200
       });
+      return withShootoutSummaries(payload);
     },
 
     fetchTeams() {
@@ -38,10 +39,19 @@ export function createEspnClient({
         dates: "20260611-20260719",
         limit: 200
       });
-      const events = Array.isArray(payload.events) ? payload.events : [];
-      return Promise.all(events.map(withShootoutSummary));
+      return withShootoutSummaries(payload).then((enriched) => enriched.events ?? []);
     }
   };
+
+  async function withShootoutSummaries(payload) {
+    const events = Array.isArray(payload.events) ? payload.events : [];
+    if (events.length === 0) return payload;
+
+    return {
+      ...payload,
+      events: await Promise.all(events.map(withShootoutSummary))
+    };
+  }
 
   async function withShootoutSummary(event) {
     if (!hasShootoutScore(event)) return event;

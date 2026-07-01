@@ -148,7 +148,7 @@ function normalizeEvents(fixtureId, details, shootout) {
       return {
         providerEventId: `${fixtureId}:${teamId}:${Math.round(detail.clock?.value ?? 0)}:${detail.type?.id ?? "0"}:${athleteId}`,
         providerTeamId: teamId,
-        playerName: athlete?.displayName ?? "Unknown player",
+        playerName: nonEmptyString(athlete?.displayName) ?? "Unknown player",
         assistPlayerName: null,
         minute,
         stoppageMinute,
@@ -160,7 +160,7 @@ function normalizeEvents(fixtureId, details, shootout) {
     (teamShootout.shots ?? []).map((shot) => ({
       providerEventId: `${fixtureId}:${teamShootout.id}:shootout:${shot.shotNumber}:${shot.id ?? shot.playerId ?? shot.player ?? "0"}`,
       providerTeamId: String(teamShootout.id ?? ""),
-      playerName: shot.player ?? "Unknown player",
+      playerName: nonEmptyString(shot.player) ?? "Unknown player",
       assistPlayerName: null,
       minute: 120,
       stoppageMinute: Number(shot.shotNumber ?? 0),
@@ -207,6 +207,10 @@ function secondsToMinutes(clock) {
 function optionalString(value) {
   if (value === undefined || value === null || value === "") return null;
   return String(value);
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "" ? value : null;
 }
 
 function arraysEqual(left, right) {
