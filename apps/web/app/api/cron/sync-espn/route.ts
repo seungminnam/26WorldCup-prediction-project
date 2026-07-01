@@ -27,16 +27,9 @@ export async function GET(request: Request) {
 
   const now = new Date();
   const syncWindow = findLiveSyncWindow(canonicalSchedule, now);
-
-  if (syncWindow.activeFixtureIds.length === 0) {
-    return NextResponse.json({
-      ok: true,
-      mode: "skip",
-      reason: "outside_match_window",
-      checkedAt: now.toISOString(),
-      nextWindow: syncWindow.nextWindow
-    });
-  }
+  const syncWindowMode = syncWindow.activeFixtureIds.length > 0
+    ? "live_window"
+    : "daily_reconciliation";
 
   const writer = createSupabaseWriter({
     url: process.env.SUPABASE_URL,
@@ -68,8 +61,10 @@ export async function GET(request: Request) {
     return NextResponse.json({
       ok: true,
       mode: "apply",
+      syncWindowMode,
       checkedAt: now.toISOString(),
       activeFixtureIds: syncWindow.activeFixtureIds,
+      nextWindow: syncWindow.nextWindow,
       result,
       knockoutResolution
     });
@@ -84,8 +79,10 @@ export async function GET(request: Request) {
       {
         ok: false,
         mode: "apply",
+        syncWindowMode,
         checkedAt: now.toISOString(),
         activeFixtureIds: syncWindow.activeFixtureIds,
+        nextWindow: syncWindow.nextWindow,
         error: formatSyncErrorMessage(error, "Unknown ESPN sync error")
       },
       { status: 500 }
