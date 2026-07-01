@@ -919,15 +919,15 @@ p {
 
 .shootout-attempt {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) 34px;
+  grid-template-columns: 18px 14px minmax(0, 1fr) 28px;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
   border: 1px solid var(--line);
   border-left: 3px solid var(--line);
   border-radius: 8px;
-  padding: 5px 6px;
-  font-size: 0.7rem;
+  padding: 5px;
+  font-size: 0.68rem;
 }
 
 .shootout-attempt.home {
@@ -938,18 +938,33 @@ p {
   border-left-color: #1c5d99;
 }
 
-.shootout-attempt > span {
+.shootout-order {
   display: inline-grid;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--navy);
+  font-weight: 950;
+  font-variant-numeric: tabular-nums;
+}
+
+.shootout-result {
+  display: inline-grid;
+  width: 14px;
+  height: 14px;
   place-items: center;
   border-radius: 50%;
   background: #e9fbf7;
   color: #0c7c40;
+  font-size: 0.58rem;
+  font-style: normal;
   font-weight: 950;
 }
 
-.shootout-attempt.penalty_miss > span {
+.shootout-attempt.penalty_miss .shootout-result {
   background: #fff0ec;
   color: #b42318;
 }

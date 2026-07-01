@@ -1091,7 +1091,10 @@ function FixtureEventPanel({
                   key={`${attempt.teamId}-${attempt.player}-${attempt.eventType}-${index}`}
                   className={`shootout-attempt ${eventSideClass(match, attempt.teamId)} ${attempt.eventType}`}
                 >
-                  <span>{attempt.eventType === "penalty_goal" ? "✓" : "×"}</span>
+                  <span className="shootout-order">{shootoutAttemptNumber(attempt, index)}</span>
+                  <i className="shootout-result" aria-hidden="true">
+                    {attempt.eventType === "penalty_goal" ? "✓" : "×"}
+                  </i>
                   <strong>{attempt.player}</strong>
                   <em>{teamCodeForEvent(attempt.teamId, teamsById)}</em>
                 </div>
@@ -1536,6 +1539,13 @@ function shootoutAttemptsForDisplay(match: AppFixture) {
     if (sideOrder !== 0) return sideOrder;
     return left.player.localeCompare(right.player);
   });
+}
+
+function shootoutAttemptNumber(attempt: AppFixture["shootoutEvents"][number], index: number) {
+  if (typeof attempt.stoppageMinute === "number" && attempt.stoppageMinute > 0) {
+    return attempt.stoppageMinute;
+  }
+  return Math.floor(index / 2) + 1;
 }
 
 function sideSortValue(match: AppFixture, teamId: string) {
