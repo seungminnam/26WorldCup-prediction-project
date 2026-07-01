@@ -887,7 +887,7 @@ function FixtureCard({
   return (
     <article className={`fixture-card ${isToday ? "today" : ""}`}>
       <div className="match-meta">
-        <span className={`status ${match.status === "FT" ? "ft" : ""}`}>{match.status as MatchStatus}</span>
+        <span className={`status${match.status === "FT" ? " ft" : ""}${match.status === "Live" ? " live" : ""}`}>{match.status as MatchStatus}</span>
         <span>Match {match.matchNumber}</span>
         <span>{match.hostCity ? `${match.venue} · ${match.hostCity}` : match.venue}</span>
       </div>

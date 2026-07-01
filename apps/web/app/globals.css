@@ -652,6 +652,29 @@ p {
   color: var(--navy);
 }
 
+@keyframes live-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.status.live {
+  background: #e03131;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.status.live::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: white;
+  flex-shrink: 0;
+  animation: live-dot-pulse 1.2s ease-in-out infinite;
+}
+
 .teams-score {
   display: grid;
   gap: 8px;
