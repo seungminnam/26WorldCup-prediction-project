@@ -21,6 +21,7 @@ test("applies final results without writing fixed schedule fields", async () => 
   assert.deepEqual(Object.keys(applied[0].fixture).sort(), [
     "away_goals",
     "away_penalties",
+    "elapsed_minutes",
     "home_goals",
     "home_penalties",
     "id",
