@@ -67,7 +67,7 @@ export async function runSyncEspnLive({ argv, client, store, today = new Date() 
         status: "failed",
         rowsSeen: plans.length,
         rowsChanged,
-        errorMessage: error.message,
+        errorMessage: formatSyncErrorMessage(error),
         metadata: { skipped, drift }
       });
     } catch {
@@ -77,6 +77,31 @@ export async function runSyncEspnLive({ argv, client, store, today = new Date() 
   }
 
   return summary;
+}
+
+export function formatSyncErrorMessage(error, fallback = "Unknown sync error") {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === "string" && error.trim() !== "") {
+    return error;
+  }
+
+  if (error && typeof error === "object") {
+    const message = "message" in error ? error.message : null;
+    if (typeof message === "string" && message.trim() !== "") {
+      return message;
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return fallback;
+    }
+  }
+
+  return fallback;
 }
 
 function pollWindow(today) {

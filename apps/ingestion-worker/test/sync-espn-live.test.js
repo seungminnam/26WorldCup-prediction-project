@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runSyncEspnLive } from "../src/cli/sync-espn-live-core.js";
+import {
+  formatSyncErrorMessage,
+  runSyncEspnLive
+} from "../src/cli/sync-espn-live-core.js";
 
 function buildClient(scoreboardPayload, teamsPayload) {
   return {
@@ -107,6 +110,30 @@ test("apply mode records a failed run and rethrows on write failure", async () =
   await assert.rejects(runSyncEspnLive({ argv: ["--apply"], client, store }), /boom/);
   assert.equal(store.runs.length, 1);
   assert.equal(store.runs[0].status, "failed");
+});
+
+test("apply mode records Supabase-style object errors with their message", async () => {
+  const client = buildClient(scoreboard, teams);
+  const store = buildStore({
+    mappings,
+    applyError: {
+      code: "23502",
+      message: 'null value in column "player_name" violates not-null constraint'
+    }
+  });
+
+  await assert.rejects(runSyncEspnLive({ argv: ["--apply"], client, store }));
+  assert.equal(store.runs.length, 1);
+  assert.equal(store.runs[0].status, "failed");
+  assert.equal(
+    store.runs[0].errorMessage,
+    'null value in column "player_name" violates not-null constraint'
+  );
+});
+
+test("formatSyncErrorMessage serializes non-Error objects", () => {
+  assert.equal(formatSyncErrorMessage({ code: "PGRST205" }), '{"code":"PGRST205"}');
+  assert.equal(formatSyncErrorMessage(null, "fallback"), "fallback");
 });
 
 test("skips an unmapped provider fixture and continues instead of aborting", async () => {

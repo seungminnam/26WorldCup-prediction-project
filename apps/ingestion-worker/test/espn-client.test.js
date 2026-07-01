@@ -110,3 +110,41 @@ test("adds shootout summaries for fixtures with shootout scores", async () => {
     { id: "449", shots: [{ shotNumber: 1, player: "Teun Koopmeiners", didScore: true }] }
   ]);
 });
+
+test("adds shootout summaries to date-window scoreboard fetches", async () => {
+  const requestedUrls = [];
+  const client = createEspnClient({
+    fetchImpl: async (url) => {
+      const parsed = new URL(url);
+      requestedUrls.push(parsed);
+      if (parsed.pathname.endsWith("/summary")) {
+        return {
+          ok: true,
+          json: async () => ({
+            shootout: [{ id: "449", shots: [{ shotNumber: 1, player: "Teun Koopmeiners", didScore: true }] }]
+          })
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          events: [
+            {
+              id: "760488",
+              competitions: [{ competitors: [{ shootoutScore: "2" }, { shootoutScore: "3" }] }]
+            }
+          ]
+        })
+      };
+    }
+  });
+
+  const payload = await client.fetchFixturesBetween({ dateFrom: "2026-06-30", dateTo: "2026-06-30" });
+
+  assert.equal(requestedUrls[1].pathname.endsWith("/summary"), true);
+  assert.equal(requestedUrls[1].searchParams.get("event"), "760488");
+  assert.deepEqual(payload.events[0].competitions[0].shootout, [
+    { id: "449", shots: [{ shotNumber: 1, player: "Teun Koopmeiners", didScore: true }] }
+  ]);
+});
