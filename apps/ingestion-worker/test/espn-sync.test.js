@@ -28,6 +28,7 @@ test("applies final results without writing fixed schedule fields", async () => 
     "result_verified_at",
     "source",
     "status",
+    "stoppage_minutes",
     "winner_team_id"
   ]);
 });

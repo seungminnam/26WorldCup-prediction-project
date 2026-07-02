@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd /Users/ryan/Desktop/26WorldCup-prediction-project/.worktrees/live-indicator\\nsleep 8\\ngh pr checks 31 2>&1\",\"description\":\"Check CI status on PR #31\"}",
+  "error": "Exit code 8\nTest, Build, And Scan\tpending\t0\thttps://github.com/seungminnam/26WorldCup-prediction-project/actions/runs/28489806537/job/84443855429\t\nVercel Preview Comments\tpass\t0\thttps://vercel.com/github\t\nVercel\tpending\t0\thttps://vercel.com/ryanseungmin-gmailcoms-projects/26worldcup-prediction-project/7RqA5tkrx2XWMk2VHvoEZKQJrytM\tVercel is deploying your app",
+  "timestamp": "2026-07-01T02:42:03.715Z",
+  "retry_count": 1
+}
