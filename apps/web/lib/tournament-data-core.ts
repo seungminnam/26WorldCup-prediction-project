@@ -65,6 +65,7 @@ export function mapFixtureRows(rows: any[], eventRows: any[]) {
     ...(typeof row.home_penalties === "number" ? { homePenalties: row.home_penalties } : {}),
     ...(typeof row.away_penalties === "number" ? { awayPenalties: row.away_penalties } : {}),
     ...(typeof row.elapsed_minutes === "number" ? { elapsedMinutes: row.elapsed_minutes } : {}),
+    ...(typeof row.stoppage_minutes === "number" ? { stoppageMinutes: row.stoppage_minutes } : {}),
     scorers: eventsByFixture[row.id] ?? [],
     shootoutEvents:
       typeof row.home_penalties === "number" && typeof row.away_penalties === "number"
@@ -78,6 +79,9 @@ function mapStatus(status: string) {
   if (status === "final") return "FT";
   if (status === "result_pending") return "Result pending";
   if (status === "live") return "Live";
+  if (status === "HT") return "HT";
+  if (status === "ET") return "ET";
+  if (status === "Pens") return "Pens";
   if (status === "postponed") return "Postponed";
   return "Upcoming";
 }

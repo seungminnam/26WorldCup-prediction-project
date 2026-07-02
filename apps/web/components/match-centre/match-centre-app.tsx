@@ -40,7 +40,7 @@ import {
 } from "@/lib/timezone-display";
 
 type TabName = "fixtures" | "standings" | "bracket" | "forecast";
-type MatchStatus = "FT" | "Upcoming" | "Live" | "Result pending" | "Postponed";
+type MatchStatus = "FT" | "Upcoming" | "Live" | "HT" | "ET" | "Pens" | "Result pending" | "Postponed";
 type StandingRow = {
   teamId: string;
   group: string;
@@ -887,9 +887,11 @@ function FixtureCard({
   return (
     <article className={`fixture-card ${isToday ? "today" : ""}`}>
       <div className="match-meta">
-        <span className={`status${match.status === "FT" ? " ft" : ""}${match.status === "Live" ? " live" : ""}`}>
+        <span className={`status${match.status === "FT" ? " ft" : ""}${(match.status === "Live" || match.status === "HT" || match.status === "ET" || match.status === "Pens") ? " live" : ""}`}>
           {match.status === "Live" && match.elapsedMinutes != null
-            ? `${match.elapsedMinutes}'`
+            ? match.stoppageMinutes != null
+              ? `${match.elapsedMinutes}+${match.stoppageMinutes}'`
+              : `${match.elapsedMinutes}'`
             : match.status as MatchStatus}
         </span>
         <span>Match {match.matchNumber}</span>

@@ -18,6 +18,7 @@ export function buildLiveScoreUpsertPlan(normalized, mappings) {
       away_penalties: normalized.away.penalties ?? null,
       winner_team_id: determineWinnerTeamId(normalized, homeTeamId, awayTeamId),
       elapsed_minutes: normalized.elapsed ?? null,
+      stoppage_minutes: normalized.stoppageMinutes ?? null,
       result_verified_at: null,
       source: normalized.provider
     },

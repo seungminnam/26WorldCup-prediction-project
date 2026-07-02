@@ -30,6 +30,9 @@ const STADIUM_HOSTS = {
 
 export function normalizeEspnStatus(statusTypeName, state) {
   if (FINAL_STATUS_NAMES.has(statusTypeName) || state === "post") return "final";
+  if (statusTypeName === "STATUS_HALFTIME") return "HT";
+  if (statusTypeName === "STATUS_EXTRA_TIME") return "ET";
+  if (statusTypeName === "STATUS_PENALTIES") return "Pens";
   if (LIVE_STATUS_NAMES.has(statusTypeName) || state === "in") return "live";
   if (POSTPONED_STATUS_NAMES.has(statusTypeName)) return "postponed";
   if (RESULT_PENDING_STATUS_NAMES.has(statusTypeName)) return "result_pending";
@@ -51,7 +54,7 @@ export function normalizeEspnFixture(event) {
     competition?.status?.type?.name,
     competition?.status?.type?.state
   );
-  const hasScore = status === "live" || status === "final";
+  const hasScore = status === "live" || status === "HT" || status === "ET" || status === "Pens" || status === "final";
 
   return {
     provider: "espn",
@@ -66,7 +69,8 @@ export function normalizeEspnFixture(event) {
     venueName,
     venueCity: STADIUM_HOSTS[venueName] ?? competition?.venue?.address?.city ?? null,
     round: competition?.altGameNote ?? null,
-    elapsed: hasScore ? secondsToMinutes(competition?.status?.clock) : null,
+    elapsed: hasScore ? parseClockDisplay(competition?.status?.clock).minute : null,
+    stoppageMinutes: hasScore ? (parseClockDisplay(competition?.status?.clock).stoppageMinute ?? null) : null,
     status,
     home: normalizeCompetitor(homeCompetitor, hasScore),
     away: normalizeCompetitor(awayCompetitor, hasScore),

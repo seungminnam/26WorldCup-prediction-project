@@ -1,4 +1,4 @@
-const scoreBearingStatuses = new Set(["Live", "FT", "Result pending"]);
+const scoreBearingStatuses = new Set(["Live", "HT", "ET", "Pens", "FT", "Result pending"]);
 
 export function shouldShowPreMatchPrediction(status) {
   return status === "Upcoming";
