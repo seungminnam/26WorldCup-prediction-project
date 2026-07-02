@@ -26,6 +26,33 @@ const ROUND_NAMES: Record<string, string> = {
   final: "Final"
 };
 
+// DFS traversal from Final (M104) determines correct bracket-tree display order for each round.
+// Mirrors the bracketDisplayOrder logic in packages/tournament-engine/src/engine/bracket.js.
+function buildBracketPositionIndex(): Map<number, number> {
+  type Canonical = { matchNumber: number; stage: string; homeSlot: string; awaySlot: string };
+  const byMatchNumber = new Map<number, Canonical>(
+    (knockoutFixtures as Canonical[]).map((f) => [f.matchNumber, f])
+  );
+  const positionByRound = new Map<string, number>();
+  const result = new Map<number, number>();
+
+  function visit(matchNumber: number) {
+    const fixture = byMatchNumber.get(matchNumber);
+    if (!fixture) return;
+    for (const slot of [fixture.homeSlot, fixture.awaySlot]) {
+      if (/^[WL]\d+$/.test(slot)) visit(Number(slot.slice(1)));
+    }
+    const pos = positionByRound.get(fixture.stage) ?? 0;
+    result.set(matchNumber, pos);
+    positionByRound.set(fixture.stage, pos + 1);
+  }
+
+  visit(104);
+  return result;
+}
+
+const bracketPositionIndex = buildBracketPositionIndex();
+
 export function readableSlotLabel(slot: string): string {
   if (/^1[A-L]$/.test(slot)) return `1st · Grp ${slot[1]}`;
   if (/^2[A-L]$/.test(slot)) return `2nd · Grp ${slot[1]}`;
@@ -140,6 +167,10 @@ export function buildActualBracketMatches(
       winnerTeamId: winnerId,
       wentToPenalties: real?.homePenalties != null && real?.awayPenalties != null
     });
+  }
+
+  for (const matches of Object.values(result)) {
+    matches.sort((a, b) => (bracketPositionIndex.get(a.matchNumber) ?? 0) - (bracketPositionIndex.get(b.matchNumber) ?? 0));
   }
 
   return result;
